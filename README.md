@@ -17,46 +17,10 @@
 
 列表上的标题只说明场景和话题，方便挑选。要听、要读、要说的那一点，打开一篇之后才出现。没有单独的语法课。
 
-## 本地运行
-
-需要 Node.js 22。
-
-```bash
-npm install
-npm run dev
-```
-
-开发服务器是 [http://127.0.0.1:4317](http://127.0.0.1:4317)。`localhost` 算安全连接，可以使用麦克风。
-
-```bash
-npm run build
-npm run preview -- --host 127.0.0.1 --port 4318
-```
-
-不要用浏览器直接打开 `dist/index.html`。那种地址不是 HTTPS，语音识别不会工作。
-
-## 发布到 GitHub Pages
-
-仓库需要是 **公开的 GitHub 仓库**，Pages 才能对所有人打开。这个项目如果还停在 Cursor 的 Origin 草稿里，要先在 GitHub 上建成公开仓库，再打开 Pages。
-
-1. 把 `main` 推到公开仓库。
-2. 打开仓库的 Settings → Pages。
-3. Build and deployment 选 **GitHub Actions**。
-4. `.github/workflows/pages.yml` 会在推送到 `main` 时构建并部署。也可以手动运行 “Deploy GitHub Pages”。
-5. 部署完成后，地址一般是 `https://<用户名>.github.io/<仓库名>/`。
-
-应用使用哈希路由，并在构建时把 `index.html` 复制成 `404.html`。分享链接长这样：
-
-```text
-https://<用户名>.github.io/<仓库名>/#/listen/L01
-```
-
-`vite.config.ts` 里是 `base: './'`，所以无论站点在域名根目录还是 `/仓库名/` 下，资源路径都不用改。如果默认分支不是 `main`，把 workflow 里的分支名改成你的默认分支。
-
 ## 麦克风和浏览器
 
 - 识别用 Web Speech API，语言 `ja-JP`。Chrome 和 Edge 最合适。Safari 对朗读的支持较好，识别不稳定。Firefox 通常没有语音识别。
-- 麦克风只在安全连接里可用：本机开发地址，或 GitHub Pages 的 HTTPS。
+- 正式站点是 HTTPS，用 Chrome 或 Edge 打开时麦克风可用。
 - 这个网站没有后端，不保存录音，也不把音频传到自己的服务器。Chrome 的识别可能由浏览器厂商的服务完成，这是 API 本身的行为。
 - 识别结果会显示出来，可以改掉明显的误转换再评分。浏览器不能识别时，可以把话打进去对照。
 - 朗读优先选用本机日语语音。没有日语语音时会用浏览器默认语音，声调可能不准。识别不能给句调打分。
