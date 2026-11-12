@@ -103,7 +103,12 @@ export function WordBook() {
                     <p className="dict-reading">{entry.reading} · {dictTopicLabel[entry.topic]}</p>
                   </div>
                 </div>
-                <SenseList senses={entry.senses.length ? entry.senses : [{ pos: entry.pos, meaningZh: entry.meaningZh }]} />
+                <SenseList
+                  senses={(entry.senses.length ? entry.senses : [{ pos: entry.pos, meaningZh: entry.meaningZh }]).map((sense) => ({
+                    pos: sense.pos,
+                    meaningZh: sense.meaningZh,
+                  }))}
+                />
                 <p className="jp dict-example" lang="ja">{entry.example}</p>
                 <p className="fine">{entry.exampleZh}</p>
                 <div className="dict-pop-actions">

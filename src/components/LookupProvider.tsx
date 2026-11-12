@@ -39,7 +39,16 @@ export function LookupProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const openLookup = useCallback((next: LookupRequest) => {
-    setCurrent(next)
+    const entry = next.entry
+    setCurrent({
+      surface: next.surface,
+      anchor: next.anchor,
+      entry: {
+        ...entry,
+        senses: entry.senses.map((sense) => ({ pos: sense.pos, meaningZh: sense.meaningZh })),
+        forms: entry.forms ? [...entry.forms] : undefined,
+      },
+    })
     place(next.anchor)
   }, [place])
 
@@ -120,7 +129,12 @@ export function LookupProvider({ children }: { children: ReactNode }) {
                 </button>
               </div>
               {current.surface !== current.entry.word ? <p className="fine">文中写的是「{current.surface}」。下面是词典里的词头。</p> : null}
-              <SenseList senses={current.entry.senses.length ? current.entry.senses : [{ pos: current.entry.pos, meaningZh: current.entry.meaningZh }]} />
+              <SenseList
+                senses={(current.entry.senses.length
+                  ? current.entry.senses
+                  : [{ pos: current.entry.pos, meaningZh: current.entry.meaningZh }]
+                ).map((sense) => ({ pos: sense.pos, meaningZh: sense.meaningZh }))}
+              />
               <p className="jp dict-example" lang="ja">{current.entry.example}</p>
               <p className="fine">{current.entry.exampleZh}</p>
               <div className="dict-pop-actions">
