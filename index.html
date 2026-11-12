@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#efe8dc" />
+    <meta
+      name="description"
+      content="面向已通过 JLPT N1 的听力和口语练习。新闻、会议、学术短讲与交涉。进度只留在这台浏览器。"
+    />
+    <title>聴話 — 听与说</title>
+    <script>
+      try {
+        var raw = localStorage.getItem('chowa-v1')
+        var data = raw ? JSON.parse(raw) : null
+        if (data && data.settings && data.settings.theme === 'dark') {
+          document.documentElement.dataset.theme = 'dark'
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', '#12110f')
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
