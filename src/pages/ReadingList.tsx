@@ -29,7 +29,7 @@ export function ReadingList() {
 
   return (
     <section>
-      <p className="eyebrow">读</p>
+      <p className="eyebrow">阅读</p>
       <h1>阅读</h1>
       <p className="lede">
         一篇一篇读。标题写明主题。读完回答大意、细节、作者意图、推断和词在文中的意思。带下划线的词可以点开，收入生词本。稿子是改写的，不是媒体原文。

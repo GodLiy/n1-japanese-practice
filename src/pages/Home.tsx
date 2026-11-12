@@ -116,7 +116,7 @@ export function Home() {
             <span className="item-kicker">阅读 · {article.minutes}</span>
             <strong>{article.title}</strong>
             <p>{article.leadZh}</p>
-            <span className="go">开始读</span>
+            <span className="go">开始阅读</span>
           </Link>
           <Link to={`/speak/${pool.mode}/${speak.id}`} className="paper card-link">
             <span className="item-kicker">{modeLabel[pool.mode]} · {speak.minutes}</span>

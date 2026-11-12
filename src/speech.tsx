@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useLocation } from 'react-router'
 import { clipFile, clipUrl } from './lib/audio-clips.ts'
 import { unlockAudio } from './lib/audio-local.ts'
-import { desktopChrome, isAppleTouch, isWeChat, prefersBundledAudio, unlockWeChatAudio } from './lib/device.ts'
+import { desktopChrome, isAppleTouch, isQQ, isWeChat, prefersBundledAudio, qqListenMessage, unlockWeChatAudio } from './lib/device.ts'
 import { showHostGuide } from './lib/host-guide.ts'
 import { SpeechContext } from './lib/speech-context.ts'
 import type { SpeakLine } from './lib/speech-context.ts'
@@ -191,22 +191,26 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   const ensureAudio = useCallback(() => {
     if (!audioRef.current) {
-      const audio = new Audio()
+      const audio = document.createElement('audio')
       audio.preload = 'auto'
       audio.setAttribute('playsinline', 'true')
+      audio.setAttribute('webkit-playsinline', 'true')
+      audio.setAttribute('x5-playsinline', 'true')
+      document.body.appendChild(audio)
       audioRef.current = audio
     }
     return audioRef.current
   }, [])
 
-  const silenceAudio = useCallback(() => {
+  const silenceAudio = useCallback((release = false) => {
     const audio = audioRef.current
     if (!audio) return
     audio.onended = null
     audio.onerror = null
     audio.onplaying = null
+    audio.ontimeupdate = null
     audio.pause()
-    audio.removeAttribute('src')
+    if (release) audio.removeAttribute('src')
   }, [])
 
   const refreshVoices = useCallback((ready: boolean) => {
@@ -243,7 +247,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     generation.current += 1
     clearKeepAlive()
     clearWatchdog()
-    silenceAudio()
+    silenceAudio(true)
     try {
       window.speechSynthesis?.cancel()
     } catch {
@@ -284,8 +288,8 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       const pending = audioRef.current.play()
       if (pending) {
         pending.catch(() => {
-          setError(PLAY_FAIL)
-          if (isWeChat()) showHostGuide('listen')
+          setError(isQQ() ? qqListenMessage() : PLAY_FAIL)
+          if (isWeChat() || isQQ()) showHostGuide('listen')
         })
       }
       return
@@ -306,10 +310,11 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     generation.current = token
     clearKeepAlive()
     clearWatchdog()
-    silenceAudio()
+    silenceAudio(false)
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined
+    const useFiles = prefersBundledAudio(japaneseVoices().length, voicesReadyRef.current || voicesReadyNow())
     const wasBusy = Boolean(synth && (synth.speaking || synth.pending || synth.paused))
-    if (wasBusy && synth) {
+    if (!useFiles && wasBusy && synth) {
       try {
         synth.cancel()
       } catch {
@@ -324,14 +329,14 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       resetPlaying()
       return token
     }
-    const useFiles = prefersBundledAudio(japaneseVoices().length, voicesReadyRef.current || voicesReadyNow())
     if (useFiles) {
       modeRef.current = 'file'
       const missing = queue.some((item) => !clipFile(item.slot, item.text))
       if (missing) {
         generation.current += 1
         resetPlaying()
-        setError(NO_CLIP)
+        setError(isQQ() ? qqListenMessage() : NO_CLIP)
+        if (isQQ()) showHostGuide('listen')
         return token
       }
       setSpeaking(true)
@@ -343,10 +348,10 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
         if (generation.current !== token) return
         generation.current += 1
         clearWatchdog()
-        silenceAudio()
+        silenceAudio(true)
         resetPlaying()
-        setError(message)
-        if (isWeChat()) showHostGuide('listen')
+        setError(isQQ() ? qqListenMessage() : message)
+        if (isWeChat() || isQQ()) showHostGuide('listen')
       }
       const playAt = (index: number) => {
         if (generation.current !== token) return
@@ -362,6 +367,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
           return
         }
         let started = false
+        let advanced = false
         const arm = (ms: number) => {
           clearWatchdog()
           watchdogRef.current = window.setTimeout(() => {
@@ -369,18 +375,42 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
             if (!started) fail(PLAY_FAIL)
           }, ms)
         }
-        audio.onended = () => {
-          if (generation.current !== token || pausedRef.current) return
+        const advance = () => {
+          if (advanced || generation.current !== token || pausedRef.current) return
+          advanced = true
           playAt(index + 1)
         }
-        audio.onerror = () => fail(PLAY_FAIL)
+        audio.onended = null
+        audio.onerror = null
+        audio.onplaying = null
+        audio.ontimeupdate = null
+        const url = clipUrl(file)
+        audio.src = url
+        audio.onended = () => {
+          if (generation.current !== token || pausedRef.current) return
+          advance()
+        }
+        audio.onerror = () => {
+          if (generation.current !== token) return
+          const name = file.split('/').pop() ?? ''
+          const current = audio.currentSrc || audio.src || ''
+          if (name && !current.includes(name)) return
+          fail(PLAY_FAIL)
+        }
         audio.onplaying = () => {
           if (generation.current !== token) return
           started = true
           setActiveSpeaker(item.speaker ?? null)
           arm(Math.min(120000, Math.max(8000, Math.round((item.text.length * 400) / speed))))
         }
-        audio.src = clipUrl(file)
+        if (isQQ()) {
+          audio.ontimeupdate = () => {
+            if (generation.current !== token || pausedRef.current || !started) return
+            const duration = audio.duration
+            if (!Number.isFinite(duration) || duration <= 0) return
+            if (audio.currentTime > 0.3 && duration - audio.currentTime < 0.12) advance()
+          }
+        }
         audio.playbackRate = speed
         audio.volume = 1
         arm(8000)

@@ -1,7 +1,7 @@
-import { isBaidu, isWeChat } from './device.ts'
+import { isBaidu, isQQ, isWeChat } from './device.ts'
 
 export type GuideReason = 'listen' | 'speak'
-export type GuideHost = 'wechat' | 'baidu'
+export type GuideHost = 'wechat' | 'baidu' | 'qq'
 export type GuideNotice = { reason: GuideReason; host: GuideHost }
 
 type Listener = (notice: GuideNotice | null) => void
@@ -12,6 +12,7 @@ const listeners = new Set<Listener>()
 function currentHost(): GuideHost | null {
   if (isWeChat()) return 'wechat'
   if (isBaidu()) return 'baidu'
+  if (isQQ()) return 'qq'
   return null
 }
 

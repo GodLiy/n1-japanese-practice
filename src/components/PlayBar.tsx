@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { isAppleTouch } from '../lib/device.ts'
+import { isAppleTouch, isQQ } from '../lib/device.ts'
 import type { SpeakLine } from '../lib/speech-context.ts'
 import { useSpeech } from '../lib/useSpeech.ts'
 import { useStore } from '../lib/useStore.ts'
@@ -67,6 +67,7 @@ export function PlayBar({
       <p className="voice-label">{speech.voiceLabel}</p>
       {speakers.length > 1 || speech.needsVoiceHelp ? <p className="fine">{speech.voiceNote}</p> : null}
       {isAppleTouch() ? <p className="fine">iPhone 和 iPad 侧面的静音开关会关掉朗读，也会关掉网页里的录音。要出声时，请拨到响铃。</p> : null}
+      {isQQ() ? <p className="fine">QQ 里播放的是网站自带的日语录音，点一下才出声。若没有声音，点右上角菜单，用系统浏览器打开。</p> : null}
       {mine && speech.activeSpeaker ? <p className="now-speaking">正在说：<span className="jp-ui">{speech.activeSpeaker}</span></p> : null}
       {speech.error ? <p className="form-error">{speech.error}</p> : null}
     </div>

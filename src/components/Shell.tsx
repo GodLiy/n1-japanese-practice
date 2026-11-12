@@ -30,7 +30,7 @@ class PageBoundary extends Component<{ children: ReactNode }, { error: Error | n
 const links = [
   { to: '/', label: '今日', end: true },
   { to: '/listen', label: '听', end: false },
-  { to: '/reading', label: '读', end: false },
+  { to: '/reading', label: '阅读', end: false },
   { to: '/speak', label: '说', end: false },
   { to: '/words', label: '词', end: false },
   { to: '/progress', label: '记录', end: false },
@@ -50,7 +50,7 @@ export function Shell() {
             <span className="brand-mark" aria-hidden="true" />
             <span className="brand-text">
               <span className="brand-name">聴話</span>
-              <span className="brand-sub">听读说</span>
+              <span className="brand-sub">听·阅读·说</span>
             </span>
           </NavLink>
           <nav className="desktop-nav" aria-label="主导航">

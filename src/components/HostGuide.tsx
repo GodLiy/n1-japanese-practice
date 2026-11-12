@@ -11,15 +11,23 @@ export function HostGuide() {
   if (!guide) return null
   const apple = isAppleTouch()
   const baidu = guide.host === 'baidu'
+  const qq = guide.host === 'qq'
+  const title = baidu
+    ? '百度里没有录到声音'
+    : qq
+      ? 'QQ 里没有播出来'
+      : guide.reason === 'speak'
+        ? '微信里说不了话'
+        : '微信里听不到声音'
 
   return (
     <div className="host-guide" role="dialog" aria-modal="true" aria-labelledby="host-guide-title">
       <div className="paper host-guide-card">
-        <h2 id="host-guide-title">
-          {baidu ? '百度里没有录到声音' : guide.reason === 'speak' ? '微信里说不了话' : '微信里听不到声音'}
-        </h2>
+        <h2 id="host-guide-title">{title}</h2>
         {baidu ? (
           <p>网页没有拿到可用的麦克风声音。可能是百度拒绝了权限，也可能是点了允许却没有把声音传进来。系统里百度的麦克风要打开。这个页面会直接录音，再用本机模型转成日语，不依赖百度的识别。</p>
+        ) : qq ? (
+          <p>听和阅读用的是本站准备好的日语录音，要点一下才会出声。QQ 里的语音经常读不出这些长段。若点了播放仍然没有声音，请用系统浏览器打开。原文仍可看。</p>
         ) : guide.reason === 'speak' ? (
           <p>这个网页拿不到麦克风。微信自己的网页经常会拦住录音，本站没有微信公众号接口，不能替你打开。</p>
         ) : (
@@ -38,6 +46,18 @@ export function HostGuide() {
                 <li>回到本页再点一次「说话」。若音量条仍不动，点百度右上角菜单 →「在浏览器中打开」，用 vivo 浏览器或 Chrome。</li>
               </>
             )
+          ) : qq ? (
+            apple ? (
+              <>
+                <li>再点一次「播放」或「朗读全文」。iPhone 请把侧面静音开关拨到响铃。</li>
+                <li>仍没有声音时，点 QQ 右上角「···」→「在Safari中打开」。</li>
+              </>
+            ) : (
+              <>
+                <li>再点一次「播放」或「朗读全文」。</li>
+                <li>仍没有声音时，点 QQ 右上角菜单 →「在浏览器中打开」，用手机自带浏览器或 Chrome。</li>
+              </>
+            )
           ) : apple ? (
             <>
               <li>iPhone / iPad：打开「系统设置 → 微信 → 麦克风」。侧面静音开关会关掉朗读和网页里的声音，请拨到响铃。静音开关不挡麦克风。</li>
@@ -49,7 +69,7 @@ export function HostGuide() {
               <li>然后点本页右上角「···」→「在浏览器中打开」。vivo 浏览器里，听练习会用网站自带的日语录音。</li>
             </>
           )}
-          <li>句子也可以直接打在输入框里评分，不需要麦克风。</li>
+          {qq ? <li>原文和题目仍可看，不需要麦克风。</li> : <li>句子也可以直接打在输入框里评分，不需要麦克风。</li>}
         </ol>
         <div className="end-actions">
           <button type="button" className="btn primary" onClick={dismissHostGuide}>

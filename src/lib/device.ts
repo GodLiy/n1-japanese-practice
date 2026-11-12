@@ -33,10 +33,23 @@ export function isX5(): boolean {
   return /TBS\//i.test(navigator.userAgent)
 }
 
+/** QQ app in-app browser and QQ browser, including iOS WKWebView (`QQ/` + `QBWebViewType`). */
+export function isQQ(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /MQQBrowser|QQBrowser|\bQQ\/|V1_AND_SQ_|V1_IPH_SQ_/i.test(navigator.userAgent)
+}
+
+export function qqListenMessage(): string {
+  if (isAppleTouch()) {
+    return 'QQ 里没有播出来。请再点一次播放。若仍然没有声音，点右上角「···」，选择「在Safari中打开」。原文仍可看。'
+  }
+  return 'QQ 里没有播出来。请再点一次播放。若仍然没有声音，点右上角菜单，选择「在浏览器中打开」（用手机自带浏览器或 Chrome）。原文仍可看。'
+}
+
 /** Hosts where speechSynthesis is present but Japanese comes out silent. */
 export function prefersBundledAudio(jaVoices: number, voicesReady: boolean): boolean {
   if (typeof navigator === 'undefined') return false
-  if (isVivoBrowser()) return true
+  if (isVivoBrowser() || isQQ()) return true
   if (!isAppleTouch() && (isWeChat() || isX5())) return true
   if (typeof window !== 'undefined' && !('speechSynthesis' in window)) return true
   if (!isAppleTouch() && voicesReady && jaVoices === 0) return true
