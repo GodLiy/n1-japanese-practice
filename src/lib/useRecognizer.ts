@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { unlockAudio, watchLevel } from './audio-local.ts'
-import { isAppleTouch, isWeChat, wechatMicMessage } from './device.ts'
+import { baiduMicMessage, isAppleTouch, isBaidu, isWeChat, wechatMicMessage } from './device.ts'
 import { showHostGuide } from './host-guide.ts'
+import { canCaptureMic, openMicrophone } from './mic-open.ts'
 import { transcribeJapanese } from './local-asr.ts'
 import { useStore } from './useStore.ts'
 
@@ -33,7 +34,7 @@ function getCtor(): (new () => Rec) | null {
 }
 
 function canUseRecorder(): boolean {
-  return typeof MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
+  return canCaptureMic()
 }
 
 function pickMime(): string {
@@ -45,7 +46,9 @@ function pickMime(): string {
 function errorMessage(code: string): string | null {
   if (code === 'aborted' || code === 'no-speech') return null
   if (code === 'not-allowed' || code === 'service-not-allowed') {
-    return isWeChat() ? wechatMicMessage() : '麦克风被拒绝了。请到设置页查看如何重新允许，然后再试。'
+    if (isWeChat()) return wechatMicMessage()
+    if (isBaidu()) return baiduMicMessage()
+    return '麦克风被拒绝了。请到设置页查看如何重新允许，然后再试。'
   }
   if (code === 'audio-capture') return '没有找到可用的麦克风。可以把句子打在下面。'
   if (code === 'network') {
@@ -56,9 +59,16 @@ function errorMessage(code: string): string | null {
 
 function deviceError(err: unknown): string {
   const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : ''
-  if (name === 'NotAllowedError' || name === 'SecurityError') {
-    if (isWeChat()) showHostGuide('speak')
-    return isWeChat() ? wechatMicMessage() : '麦克风被拒绝了。请到设置页按说明重新允许，然后再试。'
+  if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'MicSilent') {
+    if (isWeChat()) {
+      showHostGuide('speak')
+      return wechatMicMessage()
+    }
+    if (isBaidu()) {
+      showHostGuide('speak')
+      return baiduMicMessage()
+    }
+    return '麦克风被拒绝了。请到设置页按说明重新允许，然后再试。'
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return '没有找到可用的麦克风。可以把句子打在下面。'
   return '麦克风没有打开。可以再试一次，或直接把句子打在下面。'
@@ -79,6 +89,7 @@ export function useRecognizer() {
   const recogLive = useRef(false)
   const recordLive = useRef(false)
   const peakRef = useRef(0)
+  const healthyRef = useRef(true)
   const busyRef = useRef(false)
   const stopMeter = useRef<(() => void) | null>(null)
   const [listening, setListening] = useState(false)
@@ -89,8 +100,8 @@ export function useRecognizer() {
   const [heard, setHeard] = useState(false)
   const [asrStatus, setAsrStatus] = useState<string | null>(null)
   const apple = typeof window !== 'undefined' && isAppleTouch()
-  const supported = typeof window !== 'undefined' && Boolean(getCtor())
   const canRecord = typeof window !== 'undefined' && canUseRecorder()
+  const supported = typeof window !== 'undefined' && Boolean(getCtor()) && !(isBaidu() && canRecord)
   const secure = typeof window !== 'undefined' && window.isSecureContext
   const inputMode: InputMode = supported ? 'speech' : canRecord ? 'record' : 'type'
 
@@ -120,14 +131,30 @@ export function useRecognizer() {
   const runLocal = useCallback(async (blob: Blob) => {
     if (!localAsrRef.current) {
       if (!textRef.current.trim()) {
+        if (isBaidu() && peakRef.current <= 0.012 && !healthyRef.current) {
+          showHostGuide('speak')
+          setError(baiduMicMessage())
+          return
+        }
         setError(peakRef.current > 0.012
           ? '听到了声音，但浏览器没有识别出文字。可以在设置里打开本机识别，或把句子打在下面。'
           : '没有听到足够的声音。请靠近麦克风再说一次。设置里可以检查麦克风是否已允许。')
       }
       return
     }
-    if (blob.size < 400) return
+    if (blob.size < 400) {
+      if (isBaidu() && peakRef.current <= 0.012 && !healthyRef.current) {
+        showHostGuide('speak')
+        setError(baiduMicMessage())
+      }
+      return
+    }
     if (peakRef.current <= 0.012 && !textRef.current.trim()) {
+      if (isBaidu() && !healthyRef.current) {
+        showHostGuide('speak')
+        setError(baiduMicMessage())
+        return
+      }
       setError('没有听到足够的声音。请靠近麦克风，看到音量条在动之后再说。')
       return
     }
@@ -193,14 +220,17 @@ export function useRecognizer() {
     unlockAudio()
     const Ctor = getCtor()
     const record = canUseRecorder()
-    if (!Ctor && !record) {
-      if (isWeChat()) showHostGuide('speak')
-      setError(isWeChat() ? wechatMicMessage() : '这台设备不能录音，也不能识别。把你说的话打在下面。')
+    const baidu = isBaidu()
+    const useBrowserRecognition = Boolean(Ctor) && !(baidu && record)
+    if (!useBrowserRecognition && !record) {
+      if (isWeChat() || baidu) showHostGuide('speak')
+      setError(isWeChat() ? wechatMicMessage() : baidu ? baiduMicMessage() : '这台设备不能录音，也不能识别。把你说的话打在下面。')
       return
     }
     wantRef.current = true
     finalRef.current = ''
     peakRef.current = 0
+    healthyRef.current = !baidu
     setHeard(false)
     setAsrStatus(null)
     writeText('')
@@ -211,7 +241,7 @@ export function useRecognizer() {
       setAudioUrl(null)
     }
 
-    if (Ctor) {
+    if (useBrowserRecognition && Ctor) {
       try {
         recRef.current?.abort()
       } catch {
@@ -257,7 +287,7 @@ export function useRecognizer() {
           settle()
           return
         }
-        if ((event.error === 'not-allowed' || event.error === 'service-not-allowed') && isWeChat()) showHostGuide('speak')
+        if ((event.error === 'not-allowed' || event.error === 'service-not-allowed') && (isWeChat() || isBaidu())) showHostGuide('speak')
         const message = errorMessage(event.error)
         if (message && event.error !== 'network') setError(message)
         if (event.error === 'network' && !localAsrRef.current) setError(message)
@@ -300,8 +330,7 @@ export function useRecognizer() {
     }
 
     if (!record) return
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
+    openMicrophone()
       .then((stream) => {
         if (!wantRef.current) {
           stream.getTracks().forEach((track) => track.stop())
@@ -309,12 +338,32 @@ export function useRecognizer() {
         }
         releaseStream()
         streamRef.current = stream
+        const markHealthy = () => {
+          healthyRef.current = stream.getAudioTracks().some((track) => track.readyState === 'live' && track.enabled && !track.muted)
+        }
+        markHealthy()
+        for (const track of stream.getAudioTracks()) {
+          track.addEventListener('unmute', markHealthy)
+          track.addEventListener('mute', markHealthy)
+        }
+        if (baidu) {
+          window.setTimeout(() => {
+            if (!wantRef.current || peakRef.current > 0.012 || healthyRef.current) return
+            setAsrStatus('百度还没有把声音传进来。请确认系统里百度的麦克风已打开，再点一次说话。')
+            showHostGuide('speak')
+          }, 2500)
+        }
         stopMeter.current = watchLevel(stream, setLevel, (rms) => {
           if (rms > peakRef.current) peakRef.current = rms
           if (rms > 0.012) setHeard(true)
         })
         const mime = pickMime()
-        const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+        let recorder: MediaRecorder
+        try {
+          recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+        } catch {
+          recorder = new MediaRecorder(stream)
+        }
         chunksRef.current = []
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) chunksRef.current.push(event.data)
@@ -329,7 +378,12 @@ export function useRecognizer() {
           if (blob.size > 0) void runLocal(blob)
         }
         mediaRef.current = recorder
-        recorder.start()
+        try {
+          if (baidu) recorder.start(250)
+          else recorder.start()
+        } catch {
+          recorder.start()
+        }
         recordLive.current = true
         setListening(true)
       })

@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { isBaidu } from '../lib/device.ts'
 import type { InputMode } from '../lib/useRecognizer.ts'
 
 export function AttemptBox({
@@ -57,6 +58,7 @@ export function AttemptBox({
           <p className="attempt-status" aria-live="polite">{status}</p>
           {!secure ? <p className="form-error">当前不是安全连接，麦克风不可用。</p> : null}
           {error ? <p className="form-error">{error}</p> : null}
+          {isBaidu() && !listening ? <p className="fine">手机百度里会直接录音。点了允许后，音量条应该会动；不动就到系统设置打开百度的麦克风。</p> : null}
           {listening ? (
             <div className="level" aria-hidden="true">
               <span style={{ width: `${Math.round(level * 100)}%` }} />

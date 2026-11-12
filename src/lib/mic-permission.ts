@@ -1,3 +1,6 @@
+import { isBaidu } from './device.ts'
+import { openMicrophone } from './mic-open.ts'
+
 export type MicPermission = 'unknown' | 'prompt' | 'granted' | 'denied'
 
 export async function readMicPermission(): Promise<MicPermission> {
@@ -12,15 +15,15 @@ export async function readMicPermission(): Promise<MicPermission> {
 }
 
 export async function requestMicrophone(): Promise<MicPermission> {
-  if (!navigator.mediaDevices?.getUserMedia) return 'denied'
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const stream = await openMicrophone()
+    const open = stream.getAudioTracks().some((track) => track.readyState === 'live' && track.enabled && !track.muted)
     stream.getTracks().forEach((track) => track.stop())
+    if (!open && isBaidu()) return 'denied'
     return 'granted'
   } catch (error: unknown) {
     const name = error && typeof error === 'object' && 'name' in error ? String((error as { name: string }).name) : ''
-    if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied'
-    if (name === 'NotFoundError') return 'denied'
+    if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'MicSilent' || name === 'NotFoundError') return 'denied'
     return 'denied'
   }
 }

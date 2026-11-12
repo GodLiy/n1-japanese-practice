@@ -15,6 +15,19 @@ export function isVivoBrowser(): boolean {
   return /VivoBrowser/i.test(navigator.userAgent)
 }
 
+/** 手机百度、百度 App、百度浏览器（T7 / SP-engine）。 */
+export function isBaidu(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /baiduboxapp|baidubrowser|BaiduHD|SP-engine|T7\//i.test(navigator.userAgent)
+}
+
+export function baiduMicMessage(): string {
+  if (isAppleTouch()) {
+    return '百度没有把可用的麦克风交给这个网页。请到「系统设置 → 百度 → 麦克风」打开。即便点了允许，手机百度里的网页也经常录不到声音。请点右上角「···」→「在Safari中打开」，再用 Safari 说话。也可以把句子打在下面评分。'
+  }
+  return '百度没有把可用的麦克风交给这个网页。若弹出权限，点允许后音量条仍不动，也是没有把声音传进来。请到系统「设置 → 应用 → 百度（手机百度或百度浏览器）→ 权限 → 麦克风」打开。仍不行就点右上角菜单 →「在浏览器中打开」，用 vivo 浏览器或 Chrome 说话。也可以把句子打在下面评分。'
+}
+
 export function isX5(): boolean {
   if (typeof navigator === 'undefined') return false
   return /TBS\//i.test(navigator.userAgent)

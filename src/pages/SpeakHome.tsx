@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { isAppleTouch, isWeChat } from '../lib/device.ts'
+import { isAppleTouch, isBaidu, isWeChat } from '../lib/device.ts'
 import { Catalog } from '../components/Catalog.tsx'
 import { readSets } from '../content/readaloud.ts'
 import { roleScenarios } from '../content/roleplay.ts'
@@ -29,6 +29,11 @@ export function SpeakHome() {
             ? '请打开「系统设置 → 微信 → 麦克风」，再点右上角「···」→「在Safari中打开」。侧面静音开关会关掉声音，请拨到响铃。'
             : '若不能录音或听不到，点右上角「···」→「在浏览器中打开」。'}
           句子也可以打在下面评分。
+        </p>
+      ) : null}
+      {isBaidu() ? (
+        <p className="form-error">
+          你正在手机百度里打开。说话会直接录音，再用本机模型转成文字。若点了允许但没有声音，请打开系统里百度的麦克风；仍不行就点右上角菜单，用 Safari、Chrome 或 vivo 浏览器打开。
         </p>
       ) : null}
 

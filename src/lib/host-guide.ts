@@ -1,26 +1,35 @@
-import { isWeChat } from './device.ts'
+import { isBaidu, isWeChat } from './device.ts'
 
 export type GuideReason = 'listen' | 'speak'
+export type GuideHost = 'wechat' | 'baidu'
+export type GuideNotice = { reason: GuideReason; host: GuideHost }
 
-type Listener = (reason: GuideReason | null) => void
+type Listener = (notice: GuideNotice | null) => void
 
-let reason: GuideReason | null = null
+let notice: GuideNotice | null = null
 const listeners = new Set<Listener>()
 
+function currentHost(): GuideHost | null {
+  if (isWeChat()) return 'wechat'
+  if (isBaidu()) return 'baidu'
+  return null
+}
+
 export function showHostGuide(next: GuideReason): void {
-  if (!isWeChat()) return
-  reason = next
-  for (const listener of listeners) listener(reason)
+  const host = currentHost()
+  if (!host) return
+  notice = { reason: next, host }
+  for (const listener of listeners) listener(notice)
 }
 
 export function dismissHostGuide(): void {
-  reason = null
-  for (const listener of listeners) listener(reason)
+  notice = null
+  for (const listener of listeners) listener(notice)
 }
 
 export function subscribeHostGuide(listener: Listener): () => void {
   listeners.add(listener)
-  listener(reason)
+  listener(notice)
   return () => {
     listeners.delete(listener)
   }

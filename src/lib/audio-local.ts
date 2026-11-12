@@ -13,10 +13,30 @@ export function unlockAudio(): AudioContext | null {
   }
 }
 
+/** A one-sample buffer starts the context inside the user tap. Baidu's T7 kernel stays suspended without it. */
+export function kickAudio(): void {
+  const ctx = unlockAudio()
+  if (!ctx) return
+  try {
+    const buffer = ctx.createBuffer(1, 8, ctx.sampleRate || 22050)
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+    source.start()
+  } catch {
+    /* the context cannot play yet; resume() was already requested */
+  }
+}
+
 export function watchLevel(stream: MediaStream, onShown: (level: number) => void, onRms: (rms: number) => void): () => void {
   const ctx = unlockAudio()
   if (!ctx) return () => {}
-  const source = ctx.createMediaStreamSource(stream)
+  let source: MediaStreamAudioSourceNode
+  try {
+    source = ctx.createMediaStreamSource(stream)
+  } catch {
+    return () => {}
+  }
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 512
   source.connect(analyser)
