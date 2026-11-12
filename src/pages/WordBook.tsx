@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { SenseList } from '../components/SenseList.tsx'
 import { dictionary } from '../content/dictionary.ts'
 import { dictTopicLabel, dictTopicOrder } from '../lib/labels.ts'
 import { kataToHira } from '../lib/score.ts'
@@ -7,7 +8,7 @@ import { useSpeech } from '../lib/useSpeech.ts'
 import { useStore } from '../lib/useStore.ts'
 import type { DictTopic } from '../types.ts'
 
-const poses = ['名词', '动词', '形容动词', '副词', '连语']
+const poses = ['名词', '动词', '形容词', '形容动词', '副词', '连语']
 
 function fold(value: string): string {
   return kataToHira(value.normalize('NFKC').trim().toLowerCase())
@@ -30,12 +31,13 @@ export function WordBook() {
     const pool = onlySaved ? dictionary.filter((entry) => saved.has(entry.id)) : dictionary
     return pool.filter((entry) => {
       if (topic !== 'all' && entry.topic !== topic) return false
-      if (pos !== 'all' && !entry.pos.startsWith(pos)) return false
+      if (pos !== 'all' && !entry.pos.startsWith(pos) && !entry.senses.some((sense) => sense.pos.startsWith(pos))) return false
       if (!needle) return true
       return (
         fold(entry.word).includes(folded) ||
         fold(entry.reading).includes(folded) ||
         entry.meaningZh.toLowerCase().includes(needle.toLowerCase()) ||
+        entry.senses.some((sense) => sense.meaningZh.toLowerCase().includes(needle.toLowerCase()) || sense.pos.includes(needle)) ||
         (entry.forms ?? []).some((form) => fold(form).includes(folded))
       )
     })
@@ -49,7 +51,7 @@ export function WordBook() {
       <p className="eyebrow">词</p>
       <h1>单词本</h1>
       <p className="lede">
-        收录 {dictionary.length} 条 N1 及以后的词。释义和例句是为这套练习写的，不是某本单词书的原文。可以按汉字、假名或中文搜索，也可以按主题和词性浏览。点「收入生词」后的词记在这台浏览器。
+        收录 {dictionary.length} 条生活和 N1 及以后的词。一个词若有多个常见意思，会分条标出词性。释义和例句是为这套练习写的。可以按汉字、假名或中文搜索，中文会搜到每一个义项。
       </p>
       <label className="search">
         <span>搜索</span>
@@ -98,10 +100,10 @@ export function WordBook() {
                 <div className="word-card-head">
                   <div>
                     <p className="dict-word jp">{entry.word}</p>
-                    <p className="dict-reading">{entry.reading} · {entry.pos} · {dictTopicLabel[entry.topic]}</p>
+                    <p className="dict-reading">{entry.reading} · {dictTopicLabel[entry.topic]}</p>
                   </div>
                 </div>
-                <p className="dict-meaning">{entry.meaningZh}</p>
+                <SenseList senses={entry.senses.length ? entry.senses : [{ pos: entry.pos, meaningZh: entry.meaningZh }]} />
                 <p className="jp dict-example" lang="ja">{entry.example}</p>
                 <p className="fine">{entry.exampleZh}</p>
                 <div className="dict-pop-actions">

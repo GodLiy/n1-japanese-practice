@@ -16,6 +16,7 @@ export const domainOrder: Domain[] = [
   'register',
   'implication',
   'prosody',
+  'daily',
 ]
 
 export const domainLabel: Record<Domain, string> = {
@@ -34,6 +35,7 @@ export const domainLabel: Record<Domain, string> = {
   register: '语体',
   implication: '言外之意',
   prosody: '句调',
+  daily: '生活',
 }
 
 export const questionTypeLabel: Record<QuestionType, string> = {

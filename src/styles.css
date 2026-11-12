@@ -465,6 +465,14 @@ summary { cursor: pointer; color: var(--accent); }
 .dict-pop-head, .dict-pop-actions, .word-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .dict-word { margin: 0; font-size: 1.35rem; }
 .dict-reading, .dict-meaning { margin: 0.15rem 0; }
+.dict-sense-pos {
+  display: inline-block;
+  margin-right: 0.45rem;
+  color: var(--faint);
+  font-size: 0.78rem;
+}
+.dict-senses { margin: 0.25rem 0 0.4rem; padding-left: 1.2rem; }
+.dict-senses li { margin: 0.15rem 0; }
 .dict-example { margin: 0.35rem 0 0.1rem; }
 .dict-pop-actions { margin-top: 10px; }
 .search { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 4px; color: var(--faint); font-size: 0.82rem; }

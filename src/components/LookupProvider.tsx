@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { LookupContext } from '../lib/lookup-context.ts'
 import type { LookupRequest } from '../lib/lookup-context.ts'
+import { SenseList } from './SenseList.tsx'
 import { useSpeech } from '../lib/useSpeech.ts'
 import { useStore } from '../lib/useStore.ts'
 
@@ -119,7 +120,7 @@ export function LookupProvider({ children }: { children: ReactNode }) {
                 </button>
               </div>
               {current.surface !== current.entry.word ? <p className="fine">文中写的是「{current.surface}」。下面是词典里的词头。</p> : null}
-              <p className="dict-meaning">{current.entry.meaningZh}</p>
+              <SenseList senses={current.entry.senses.length ? current.entry.senses : [{ pos: current.entry.pos, meaningZh: current.entry.meaningZh }]} />
               <p className="jp dict-example" lang="ja">{current.entry.example}</p>
               <p className="fine">{current.entry.exampleZh}</p>
               <div className="dict-pop-actions">

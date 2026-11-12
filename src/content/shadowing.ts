@@ -1,4 +1,5 @@
 import type { ShadowPassage } from '../types.ts'
+import { lifeShadow } from './shadow-life.ts'
 import { newsShadow } from './shadow-news.ts'
 
 const coreShadow: ShadowPassage[] = [
@@ -285,7 +286,7 @@ const coreShadow: ShadowPassage[] = [
   },
 ]
 
-export const shadowPassages: ShadowPassage[] = [...coreShadow, ...newsShadow]
+export const shadowPassages: ShadowPassage[] = [...coreShadow, ...newsShadow, ...lifeShadow]
 
 export function getShadow(id: string): ShadowPassage | undefined {
   return shadowPassages.find((item) => item.id === id)

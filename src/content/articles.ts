@@ -1,6 +1,7 @@
 import type { Article } from '../types.ts'
+import { lifeArticles } from './articles-life.ts'
 
-export const articles: Article[] = [
+const coreArticles: Article[] = [
   {
     id: 'A01',
     title: '时政：国会里的议席',
@@ -715,6 +716,8 @@ export const articles: Article[] = [
     ],
   },
 ]
+
+export const articles: Article[] = [...coreArticles, ...lifeArticles]
 
 export function getArticle(id: string): Article | undefined {
   return articles.find((item) => item.id === id)

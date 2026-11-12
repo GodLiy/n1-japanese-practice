@@ -14,6 +14,7 @@ export type Domain =
   | 'register'
   | 'implication'
   | 'prosody'
+  | 'daily'
 
 export type QuestionType = 'gist' | 'detail' | 'attitude' | 'implication' | 'intent' | 'inference' | 'vocab'
 
@@ -152,12 +153,21 @@ export type Article = {
 
 export type DictTopic = 'politics' | 'economy' | 'society' | 'tech' | 'culture' | 'life' | 'thought' | 'action'
 
+export type DictSense = {
+  pos: string
+  meaningZh: string
+}
+
 export type DictEntry = {
   id: string
   word: string
   reading: string
+  /** 筛选用的主要词性。各义项的词性见 senses。 */
   pos: string
   topic: DictTopic
+  /** 全部常见义项。词性随义项变化时写在每一条上。 */
+  senses: DictSense[]
+  /** 各义项连写，便于旧代码和搜索。 */
   meaningZh: string
   example: string
   exampleZh: string
