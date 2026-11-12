@@ -19,7 +19,7 @@ export function SpeakHome() {
       <p className="eyebrow">说</p>
       <h1>跟读、应对、朗读</h1>
       <p className="lede">
-        每条标题写明场合。麦克风在 Chrome 和 Edge 上最稳。Firefox 通常不能识别。识别结果永远显示出来，可以改明显的误转换再评分。句调本身不会被打分。稿子里带下划线的词可以点开。
+        每条标题写明场合。iPhone、iPad、安卓和电脑都可以朗读和说话。识别不稳定时可以录音回听，或把句子打出来再评分。句调本身不会被打分。稿子里带下划线的词可以点开。
       </p>
 
       <h2 id="shadow">跟读</h2>

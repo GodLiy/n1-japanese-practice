@@ -67,12 +67,12 @@ export function SettingsPage() {
       <section className="paper inset">
         <h2>这台浏览器</h2>
         <ul className="support-list">
-          <li>{support.tts ? '可以朗读。' : '不能朗读。题目和参考答案仍可看。'}</li>
-          <li>{support.recog ? '可以识别日语。Chrome 和 Edge 最稳。' : '不能识别日语。可以把话说完后打出来对照。'}</li>
-          <li>{support.secure ? '当前是安全连接，麦克风可用。' : '当前不是安全连接。请用本机地址或 HTTPS，不要直接打开文件。'}</li>
+          <li>{support.tts ? '可以朗读。iPhone 和 iPad 请先关掉侧面静音。' : '不能朗读。题目和参考答案仍可看。'}</li>
+          <li>{support.recog ? '可以把日语转成文字，结果可以改。' : support.record ? '不能自动转成文字。可以录音回听，再把句子打出来对照。' : '不能识别，也不能录音。可以把话说完后打出来对照。'}</li>
+          <li>{support.secure ? '当前是安全连接，麦克风可用。' : '当前不是安全连接，麦克风不可用。'}</li>
         </ul>
         <p>
-          这个网站没有服务器，不保存录音，也不把声音传到自己的后台。按下麦克风后，识别交给浏览器的 Web Speech API。Chrome 可能会把声音交给浏览器厂商的识别服务。朗读同样由浏览器完成，优先使用本机日语语音。
+          这个网站没有服务器，不保存录音，也不把声音传到自己的后台。朗读和麦克风可以在 iPhone、iPad 的 Safari、安卓的 Chrome，以及电脑上的 Safari、Chrome、Edge 使用。识别交给浏览器；浏览器自己的识别服务可能会处理声音。不能识别时，可以录音回听自己的日语，或把句子打出来评分。
         </p>
       </section>
 
@@ -98,12 +98,13 @@ export function SettingsPage() {
   )
 }
 
-function readSupport(): { tts: boolean; recog: boolean; secure: boolean } {
-  if (typeof window === 'undefined') return { tts: false, recog: false, secure: false }
+function readSupport(): { tts: boolean; recog: boolean; record: boolean; secure: boolean } {
+  if (typeof window === 'undefined') return { tts: false, recog: false, record: false, secure: false }
   const host = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }
   return {
     tts: 'speechSynthesis' in window,
     recog: Boolean(host.SpeechRecognition || host.webkitSpeechRecognition),
+    record: typeof MediaRecorder !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia),
     secure: window.isSecureContext,
   }
 }

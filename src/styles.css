@@ -211,6 +211,8 @@ rt {
 .hint { color: var(--muted); }
 .cast { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0; margin: 8px 0; list-style: none; }
 .playbar { margin-top: 10px; }
+.playbar-actions { flex-wrap: wrap; }
+.playbar .btn, .mic { touch-action: manipulation; }
 .voice-label, .form-error { margin: 6px 0 0; font-size: 0.88rem; }
 .form-error { color: var(--ng); }
 .btn, .chip, .dot, .option, .mic, .switch {
@@ -219,7 +221,7 @@ rt {
   border-radius: 999px;
   cursor: pointer;
 }
-.btn { padding: 10px 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.btn { padding: 10px 16px; min-height: 44px; min-width: 44px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; touch-action: manipulation; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.danger { background: var(--ng); color: white; border-color: var(--ng); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -306,6 +308,7 @@ rt {
 .mic-kana { font-family: "Noto Serif JP", serif; font-size: 1.25rem; }
 .mic-zh { font-size: 0.75rem; }
 .mic-live { animation: pulse 1.4s ease-out infinite; }
+.replay audio { display: block; width: min(100%, 420px); height: 44px; }
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mic) 50%, transparent); }
   100% { box-shadow: 0 0 0 16px transparent; }

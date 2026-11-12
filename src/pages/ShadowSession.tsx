@@ -136,7 +136,10 @@ function ShadowPlayer({ item }: { item: ShadowPassage }) {
             text={rec.text}
             error={rec.error}
             supported={rec.supported}
+            canRecord={rec.canRecord}
             secure={rec.secure}
+            inputMode={rec.inputMode}
+            audioUrl={rec.audioUrl}
             onChange={rec.setText}
             onMic={() => {
               if (rec.listening) rec.stop()
