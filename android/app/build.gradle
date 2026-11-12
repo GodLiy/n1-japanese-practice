@@ -10,9 +10,9 @@ def keystorePath = System.getenv("KEYSTORE_FILE")
 if (!keystorePath && keystoreProperties.getProperty("storeFile")) {
     keystorePath = rootProject.file(keystoreProperties.getProperty("storeFile")).absolutePath
 }
-def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
-def keyAliasName = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
-def keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
+def signingStorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+def signingKeyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+def signingKeyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
 
 android {
     namespace = "com.godliy.chowa"
@@ -33,10 +33,10 @@ android {
     signingConfigs {
         release {
             if (keystorePath) {
-                storeFile file(keystorePath)
-                storePassword keystorePassword
-                keyAlias keyAliasName
-                keyPassword keyPassword
+                storeFile = file(keystorePath)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
             }
         }
     }
