@@ -1,0 +1,8 @@
+{
+  "appId": "com.godliy.chowa",
+  "appName": "聴話",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

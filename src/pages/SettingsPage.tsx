@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MicSettings } from '../components/MicSettings.tsx'
+import { isNativeApp } from '../lib/device.ts'
 import { usePageTitle } from '../lib/usePageTitle.ts'
 import { useStore } from '../lib/useStore.ts'
 
@@ -68,7 +69,10 @@ export function SettingsPage() {
       </section>
 
       <section className="paper inset">
-        <h2>这台浏览器</h2>
+        <h2>{isNativeApp() ? '这台手机' : '这台浏览器'}</h2>
+        {isNativeApp() ? (
+          <p>这是装在手机上的聴話。听、阅读和说播放安装包里的日语录音。第一次点「说话」时，请允许麦克风。声音不会上传。</p>
+        ) : null}
         <ul className="support-list">
           <li>{support.tts ? '这台浏览器有朗读。没有日语语音时，听练习会改播网站自带的日语录音。iPhone 和 iPad 请把侧面静音开关拨到响铃，否则朗读和网页录音都没有声音。' : '这台浏览器没有语音合成。听练习会改播网站自带的日语录音；原文仍可看。'}</li>
           <li>{support.recog ? '浏览器可以尝试把日语转成文字。没听出来时，会用本机模型再听一遍。' : '这台浏览器没有自带语音识别。打开本机识别后，仍可以把录音转成文字。'}</li>

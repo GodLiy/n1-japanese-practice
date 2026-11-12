@@ -1,3 +1,9 @@
+import { Capacitor } from '@capacitor/core'
+
+export function isNativeApp(): boolean {
+  return Capacitor.isNativePlatform()
+}
+
 export function isAppleTouch(): boolean {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
@@ -49,7 +55,7 @@ export function qqListenMessage(): string {
 /** Hosts where speechSynthesis is present but Japanese comes out silent. */
 export function prefersBundledAudio(jaVoices: number, voicesReady: boolean): boolean {
   if (typeof navigator === 'undefined') return false
-  if (isVivoBrowser() || isQQ()) return true
+  if (isVivoBrowser() || isQQ() || isNativeApp()) return true
   if (!isAppleTouch() && (isWeChat() || isX5())) return true
   if (typeof window !== 'undefined' && !('speechSynthesis' in window)) return true
   if (!isAppleTouch() && voicesReady && jaVoices === 0) return true

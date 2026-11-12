@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android signing material and local SDK path
+*.jks
+*.keystore
+android/local.properties
