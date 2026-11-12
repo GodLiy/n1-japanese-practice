@@ -17,6 +17,7 @@ export function PlayBar({
   const [token, setToken] = useState(0)
   const mine = speech.speaking && speech.activeToken !== 0 && speech.activeToken === token
   const slow = Math.min(0.82, Math.round(state.settings.rate * 0.85 * 100) / 100)
+  const speakers = [...new Set(lines.map((line) => line.speaker).filter((name): name is string => Boolean(name)))]
 
   return (
     <div className="playbar">
@@ -47,6 +48,8 @@ export function PlayBar({
         </button>
       </div>
       <p className="voice-label">{speech.voiceLabel}</p>
+      {speakers.length > 1 ? <p className="fine">{speech.voiceNote}</p> : null}
+      {mine && speech.activeSpeaker ? <p className="now-speaking">正在说：<span className="jp-ui">{speech.activeSpeaker}</span></p> : null}
       {speech.error ? <p className="form-error">{speech.error}</p> : null}
     </div>
   )

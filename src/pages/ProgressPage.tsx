@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { articles } from '../content/articles.ts'
 import { listeningItems } from '../content/listening.ts'
 import { readSets } from '../content/readaloud.ts'
 import { roleScenarios } from '../content/roleplay.ts'
@@ -14,6 +15,7 @@ const groups: { mode: Mode; title: string; rows: { id: string; title: string; to
   { mode: 'shadow', title: '跟读', rows: shadowPassages.map((item) => ({ id: item.id, title: item.title, to: `/speak/shadow/${item.id}` })) },
   { mode: 'role', title: '应对', rows: roleScenarios.map((item) => ({ id: item.id, title: item.title, to: `/speak/role/${item.id}` })) },
   { mode: 'read', title: '朗读', rows: readSets.map((item) => ({ id: item.id, title: item.title, to: `/speak/read/${item.id}` })) },
+  { mode: 'article', title: '阅读', rows: articles.map((item) => ({ id: item.id, title: item.title, to: `/reading/${item.id}` })) },
 ]
 
 export function ProgressPage() {
@@ -24,7 +26,7 @@ export function ProgressPage() {
       <p className="eyebrow">只在这台浏览器</p>
       <h1>记录</h1>
       <p className="lede">
-        连续 {state.streak.count} 天。听解均分 {averageBest(state.records, 'listen:') ?? '—'}，跟读 {averageBest(state.records, 'shadow:') ?? '—'}，应对 {averageBest(state.records, 'role:') ?? '—'}，朗读 {averageBest(state.records, 'read:') ?? '—'}。
+        连续 {state.streak.count} 天。听解均分 {averageBest(state.records, 'listen:') ?? '—'}，阅读 {averageBest(state.records, 'article:') ?? '—'}，跟读 {averageBest(state.records, 'shadow:') ?? '—'}，应对 {averageBest(state.records, 'role:') ?? '—'}，朗读 {averageBest(state.records, 'read:') ?? '—'}。
       </p>
       {groups.map((group) => {
         const done = group.rows.filter((row) => getRecord(group.mode, row.id)?.attempts).length

@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router'
 import { AttemptBox } from '../components/AttemptBox.tsx'
 import { Missing } from '../components/Missing.tsx'
 import { PlayBar } from '../components/PlayBar.tsx'
-import { RubyText } from '../components/RubyText.tsx'
+import { LookupText } from '../components/LookupText.tsx'
 import { ScoreRing } from '../components/ScoreRing.tsx'
 import { getRole, roleScenarios } from '../content/roleplay.ts'
 import { domainLabel } from '../lib/labels.ts'
@@ -44,15 +44,18 @@ function RolePlayer({ item }: { item: RoleScenario }) {
       </div>
       <p className="eyebrow">{domainLabel[item.domain]} · {item.registerZh}</p>
       <h1>{item.title}</h1>
+      {item.titleJa ? <p className="title-ja jp-ui">{item.titleJa}</p> : null}
+      {item.newsDate || item.sourceZh ? <p className="fine">{[item.newsDate, item.sourceZh].filter(Boolean).join(' · ')}</p> : null}
       <section className="paper inset">
         <h2>情境</h2>
+        {item.summaryZh ? <p>{item.summaryZh}</p> : null}
         <p>{item.situationZh}</p>
         <p><strong>你是</strong> {item.yourRoleZh}</p>
         <p className="item-kicker">{item.counterpartRoleZh}说</p>
         <p className="script">
-          <RubyText value={item.counterpart} furigana={state.settings.furigana} />
+          <LookupText value={item.counterpart} furigana={state.settings.furigana} />
         </p>
-        <PlayBar lines={[{ text: item.counterpart, slot: 1 }]} label="听对方" />
+        <PlayBar lines={[{ text: item.counterpart, slot: 1, speaker: item.counterpartRoleZh }]} label="听对方" />
       </section>
       <section className="paper inset">
         <h2>说的时候要盖住</h2>
@@ -123,13 +126,13 @@ function RolePlayer({ item }: { item: RoleScenario }) {
         {showModel ? (
           <>
             <p className="script">
-              <RubyText value={item.model} furigana={state.settings.furigana} />
+              <LookupText value={item.model} furigana={state.settings.furigana} />
             </p>
-            <PlayBar lines={[{ text: item.model, slot: 0 }]} label="听参考答案" />
+            <PlayBar lines={[{ text: item.model, slot: 0, speaker: '参考答案' }]} label="听参考答案" />
             {item.variants.map((variant) => (
               <div key={variant.labelZh} className="variant">
                 <p className="item-kicker">{variant.labelZh}</p>
-                <p className="jp" lang="ja">{variant.text}</p>
+                <p lang="ja"><LookupText value={variant.text} furigana={state.settings.furigana} /></p>
               </div>
             ))}
             <h2>语体</h2>

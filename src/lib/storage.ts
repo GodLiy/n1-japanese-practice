@@ -16,6 +16,7 @@ export function emptyState(): Persisted {
     records: {},
     streak: { count: 0, lastDay: '' },
     activity: [],
+    savedWords: [],
   }
 }
 
@@ -29,6 +30,7 @@ export function loadState(): Persisted {
       records: parsed.records ?? {},
       streak: parsed.streak?.lastDay ? parsed.streak : { count: 0, lastDay: '' },
       activity: Array.isArray(parsed.activity) ? parsed.activity : [],
+      savedWords: Array.isArray(parsed.savedWords) ? parsed.savedWords.filter((id) => typeof id === 'string') : [],
     }
   } catch {
     return emptyState()

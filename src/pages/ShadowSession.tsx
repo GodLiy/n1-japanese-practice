@@ -4,7 +4,7 @@ import { AttemptBox } from '../components/AttemptBox.tsx'
 import { DiffView } from '../components/DiffView.tsx'
 import { Missing } from '../components/Missing.tsx'
 import { PlayBar } from '../components/PlayBar.tsx'
-import { RubyText } from '../components/RubyText.tsx'
+import { LookupText } from '../components/LookupText.tsx'
 import { ScoreRing } from '../components/ScoreRing.tsx'
 import { getShadow, shadowPassages } from '../content/shadowing.ts'
 import { domainLabel } from '../lib/labels.ts'
@@ -71,7 +71,10 @@ function ShadowPlayer({ item }: { item: ShadowPassage }) {
       </div>
       <p className="eyebrow">{domainLabel[item.domain]} · {item.registerZh} · 跟读</p>
       <h1>{item.title}</h1>
-      <p className="focus">{item.coachZh}</p>
+      {item.titleJa ? <p className="title-ja jp-ui">{item.titleJa}</p> : null}
+      {item.newsDate || item.sourceZh ? <p className="fine">{[item.newsDate, item.sourceZh].filter(Boolean).join(' · ')}</p> : null}
+      <p className="focus">{item.summaryZh ?? item.coachZh}</p>
+      {item.summaryZh ? <p className="notice">{item.coachZh}</p> : null}
 
       {done ? (
         <section className="paper inset">
@@ -87,7 +90,7 @@ function ShadowPlayer({ item }: { item: ShadowPassage }) {
             {item.chunks.map((entry, chunkIndex) => (
               <li key={chunkIndex}>
                 <span className="num">{scores[chunkIndex] ?? 0}</span>
-                <RubyText value={entry.spoken} furigana={state.settings.furigana} />
+                <LookupText value={entry.spoken} furigana={state.settings.furigana} />
               </li>
             ))}
           </ol>
@@ -117,13 +120,13 @@ function ShadowPlayer({ item }: { item: ShadowPassage }) {
           <section className="paper inset">
             <p className="item-kicker">口语目标 · {index + 1} / {item.chunks.length}</p>
             <p className="script">
-              <RubyText value={chunk.spoken} furigana={state.settings.furigana} />
+              <LookupText value={chunk.spoken} furigana={state.settings.furigana} />
             </p>
             <p className="notice">{chunk.noticeZh}</p>
             <details>
               <summary>书面说法</summary>
               <p>
-                <RubyText value={chunk.written} furigana={state.settings.furigana} />
+                <LookupText value={chunk.written} furigana={state.settings.furigana} />
               </p>
             </details>
             <PlayBar lines={[{ text: chunk.spoken, slot: 0 }]} label="听这一小段" />

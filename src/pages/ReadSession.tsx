@@ -4,9 +4,10 @@ import { AttemptBox } from '../components/AttemptBox.tsx'
 import { DiffView } from '../components/DiffView.tsx'
 import { Missing } from '../components/Missing.tsx'
 import { PlayBar } from '../components/PlayBar.tsx'
-import { RubyText } from '../components/RubyText.tsx'
+import { LookupText } from '../components/LookupText.tsx'
 import { ScoreRing } from '../components/ScoreRing.tsx'
 import { getReadSet, readSets } from '../content/readaloud.ts'
+import { domainLabel } from '../lib/labels.ts'
 import { scoreBand, similarity } from '../lib/score.ts'
 import { useRecognizer } from '../lib/useRecognizer.ts'
 import { usePageTitle } from '../lib/usePageTitle.ts'
@@ -68,9 +69,12 @@ function ReadPlayer({ item }: { item: ReadSet }) {
         <Link to="/speak" className="back">口语</Link>
         <span className="num">{listIndex + 1} / {readSets.length}</span>
       </div>
-      <p className="eyebrow">句调 · 朗读</p>
+      <p className="eyebrow">{domainLabel[item.domain]} · 朗读</p>
       <h1>{item.title}</h1>
-      <p className="focus">{item.focusZh}</p>
+      {item.titleJa ? <p className="title-ja jp-ui">{item.titleJa}</p> : null}
+      {item.newsDate || item.sourceZh ? <p className="fine">{[item.newsDate, item.sourceZh].filter(Boolean).join(' · ')}</p> : null}
+      <p className="focus">{item.summaryZh ?? item.focusZh}</p>
+      {item.summaryZh ? <p className="notice">{item.focusZh}</p> : null}
       <p className="fine">语音识别听不出升降。这里的分数只表示字面。高低请对照播放，自己听。</p>
       {done ? (
         <section className="paper inset">
@@ -86,7 +90,7 @@ function ReadPlayer({ item }: { item: ReadSet }) {
               <li key={entry.text}>
                 <span className="num">{scores[sentenceIndex] ?? 0}</span>
                 <span>
-                  <RubyText value={entry.text} furigana={state.settings.furigana} />
+                  <LookupText value={entry.text} furigana={state.settings.furigana} />
                   <small className="notice">{entry.noteZh}</small>
                 </span>
               </li>
@@ -118,7 +122,7 @@ function ReadPlayer({ item }: { item: ReadSet }) {
           <section className="paper inset">
             <p className="item-kicker">{index + 1} / {item.sentences.length}</p>
             <p className="script">
-              <RubyText value={sentence.text} furigana={state.settings.furigana} />
+              <LookupText value={sentence.text} furigana={state.settings.furigana} />
             </p>
             <p className="notice">{sentence.noteZh}</p>
             <PlayBar lines={[{ text: sentence.text, slot: 0 }]} label="听这一句" />

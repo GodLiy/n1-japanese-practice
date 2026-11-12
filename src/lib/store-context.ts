@@ -7,6 +7,8 @@ export type StoreValue = {
   recordResult: (mode: Mode, id: string, title: string, score: number) => void
   resetProgress: () => void
   getRecord: (mode: Mode, id: string) => Persisted['records'][string] | undefined
+  toggleSaved: (id: string) => void
+  isSaved: (id: string) => boolean
 }
 
 export const StoreContext = createContext<StoreValue | null>(null)

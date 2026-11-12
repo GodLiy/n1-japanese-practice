@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Missing } from '../components/Missing.tsx'
 import { PlayBar } from '../components/PlayBar.tsx'
+import { LookupText } from '../components/LookupText.tsx'
 import { RubyText } from '../components/RubyText.tsx'
 import { ScoreRing } from '../components/ScoreRing.tsx'
 import { getListening, listeningItems } from '../content/listening.ts'
-import { domainLabel, questionTypeLabel } from '../lib/labels.ts'
+import { domainLabel, questionListenFor, questionTypeLabel } from '../lib/labels.ts'
 import { listenBand } from '../lib/score.ts'
 import { usePageTitle } from '../lib/usePageTitle.ts'
 import type { SpeakLine } from '../lib/speech-context.ts'
@@ -18,7 +19,7 @@ function toSpeech(lines: SpeakerLine[]): SpeakLine[] {
   return lines.map((line) => {
     if (!line.speaker) return { text: line.text, slot: 0 }
     if (!slots.has(line.speaker)) slots.set(line.speaker, next++)
-    return { text: line.text, slot: slots.get(line.speaker) ?? 0 }
+    return { text: line.text, slot: slots.get(line.speaker) ?? 0, speaker: line.speaker }
   })
 }
 
@@ -81,10 +82,13 @@ function ListenPlayer({ item }: { item: ListeningItem }) {
       </div>
       <p className="eyebrow">{domainLabel[item.domain]} · {item.kind === 'dialogue' ? '对话' : '独白'} · {item.minutes}</p>
       <h1>{item.title}</h1>
-      <p className="focus">{item.focusZh}</p>
+      {item.titleJa ? <p className="title-ja jp-ui">{item.titleJa}</p> : null}
+      {item.newsDate || item.sourceZh ? <p className="fine">{[item.newsDate, item.sourceZh].filter(Boolean).join(' · ')}</p> : null}
+      <p className="focus">{item.summaryZh ?? item.situationZh}</p>
       <section className="paper inset">
         <h2>情境</h2>
         <p>{item.situationZh}</p>
+        <p className="notice">{item.focusZh}</p>
         {item.lines.some((line) => line.speaker) ? (
           <ul className="cast">
             {[...new Map(item.lines.filter((line) => line.speaker).map((line) => [line.speaker, line.roleZh])).entries()].map(([name, role]) => (
@@ -102,8 +106,9 @@ function ListenPlayer({ item }: { item: ListeningItem }) {
       {phase === 'question' && question ? (
         <section className="paper inset">
           <p className="item-kicker">第 {qIndex + 1} / {item.questions.length} 问 · {questionTypeLabel[question.type]}</p>
+          <p className="purpose">{questionListenFor[question.type]}</p>
           <h2 className="prompt">
-            <RubyText value={question.prompt} furigana={furigana} />
+            <LookupText value={question.prompt} furigana={furigana} />
           </h2>
           {hints ? <p className="hint">{question.promptZh}</p> : null}
           {plays === 0 ? <p className="fine">还没有播放。可以先听再选。朗读失败时，题目仍然可以作答。</p> : null}
@@ -183,8 +188,13 @@ function ListenPlayer({ item }: { item: ListeningItem }) {
           <div className="transcript">
             {item.lines.map((line, lineIndex) => (
               <p key={lineIndex}>
-                {line.speaker ? <span className="who jp-ui">{line.speaker}</span> : null}
-                <RubyText value={line.text} furigana={furigana} />
+                {line.speaker ? (
+                  <span className="who">
+                    <span className="jp-ui">{line.speaker}</span>
+                    {line.roleZh ? <span className="who-role">{line.roleZh}</span> : null}
+                  </span>
+                ) : null}
+                <LookupText value={line.text} furigana={furigana} />
               </p>
             ))}
           </div>
@@ -192,7 +202,7 @@ function ListenPlayer({ item }: { item: ListeningItem }) {
           <ul className="vocab">
             {item.vocab.map((entry) => (
               <li key={entry.word}>
-                <span className="jp">{entry.word}</span>
+                <LookupText value={entry.word} furigana={furigana} />
                 <span className="reading">{entry.reading}</span>
                 <span>{entry.meaningZh}</span>
               </li>

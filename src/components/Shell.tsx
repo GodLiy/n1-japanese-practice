@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router'
+import { Scene } from './Scene.tsx'
 import { Component } from 'react'
 import type { ReactNode } from 'react'
 
@@ -28,13 +29,16 @@ class PageBoundary extends Component<{ children: ReactNode }, { error: Error | n
 const links = [
   { to: '/', label: '今日', end: true },
   { to: '/listen', label: '听', end: false },
+  { to: '/reading', label: '读', end: false },
   { to: '/speak', label: '说', end: false },
+  { to: '/words', label: '词', end: false },
   { to: '/progress', label: '记录', end: false },
 ]
 
 export function Shell() {
   return (
     <>
+      <Scene />
       <a className="skip" href="#content">
         跳到练习
       </a>
@@ -44,7 +48,7 @@ export function Shell() {
             <span className="brand-mark" aria-hidden="true" />
             <span className="brand-text">
               <span className="brand-name">聴話</span>
-              <span className="brand-sub">听与说</span>
+              <span className="brand-sub">听读说</span>
             </span>
           </NavLink>
           <nav className="desktop-nav" aria-label="主导航">

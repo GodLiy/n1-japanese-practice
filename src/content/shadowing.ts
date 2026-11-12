@@ -1,12 +1,15 @@
 import type { ShadowPassage } from '../types.ts'
+import { newsShadow } from './shadow-news.ts'
 
-export const shadowPassages: ShadowPassage[] = [
+const coreShadow: ShadowPassage[] = [
   {
     id: 'S01',
-    title: '新闻句的落点',
-    domain: 'news',
+    title: '跟读：新闻口播',
+    titleJa: 'ニュース',
+    domain: 'politics',
     registerZh: '新闻口播',
     minutes: '约 4 分钟',
+    summaryZh: '一段新闻口播，话题是地方铁路。约 4 分钟。',
     coachZh: '新闻腔不要在每个逗号都换气。修饰从句连着走，到真正的谓语前再落下。句尾用「でした」收住，不要再往上扬。',
     chunks: [
       {
@@ -38,10 +41,12 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S02',
-    title: '评论里的「限り」',
-    domain: 'news',
+    title: '跟读：新闻评论',
+    titleJa: '評論',
+    domain: 'society',
     registerZh: '评论文',
     minutes: '约 4 分钟',
+    summaryZh: '一段评论口播，话题是在家工作。约 4 分钟。',
     coachZh: '评论不是喊口号。分量在「ではなく」和「限り」。留保的地方不要含糊，那正是论点。',
     chunks: [
       {
@@ -73,7 +78,9 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S03',
-    title: '会议上的缓冲和接住',
+    title: '跟读：公司会议上的敬语',
+    titleJa: '会議',
+    summaryZh: '会上的一段敬语，两人在谈方案。约 4 分钟。',
     domain: 'workplace',
     registerZh: '对上级的敬语',
     minutes: '约 4 分钟',
@@ -108,7 +115,9 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S04',
-    title: '同事之间的缩约',
+    title: '跟读：同事之间的口语',
+    titleJa: '同僚',
+    summaryZh: '对平级同事说的一段口语。约 4 分钟。',
     domain: 'register',
     registerZh: '对平级的口语',
     minutes: '约 4 分钟',
@@ -138,7 +147,9 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S05',
-    title: '短讲里的接续词',
+    title: '跟读：学术短讲',
+    titleJa: '講義',
+    summaryZh: '一段讲课口语。约 5 分钟。',
     domain: 'academic',
     registerZh: '讲课口语',
     minutes: '约 5 分钟',
@@ -173,7 +184,9 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S06',
-    title: '投诉时把音量放下',
+    title: '跟读：投诉电话',
+    titleJa: '苦情',
+    summaryZh: '住户打给管理公司的一段话。约 4 分钟。',
     domain: 'negotiation',
     registerZh: '礼貌而明确',
     minutes: '约 4 分钟',
@@ -203,7 +216,9 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S07',
-    title: '把失败拆开说',
+    title: '跟读：访谈里的一段回答',
+    titleJa: 'インタビュー',
+    summaryZh: '受访者谈自己上一次的事业。约 4 分钟。',
     domain: 'interview',
     registerZh: '访谈回答',
     minutes: '约 4 分钟',
@@ -238,8 +253,10 @@ export const shadowPassages: ShadowPassage[] = [
   },
   {
     id: 'S08',
-    title: '拒绝之前的一拍',
-    domain: 'implication',
+    title: '跟读：同事之间的邀约',
+    titleJa: '誘い',
+    summaryZh: '同事之间的一段口语，内容是周末的邀约。约 4 分钟。',
+    domain: 'society',
     registerZh: '同事之间，留有余地',
     minutes: '约 4 分钟',
     coachZh: '拒绝在内容之前先有一拍。问天气不是问题，是把拒绝放到对方接得住的位置。',
@@ -267,6 +284,8 @@ export const shadowPassages: ShadowPassage[] = [
     ],
   },
 ]
+
+export const shadowPassages: ShadowPassage[] = [...coreShadow, ...newsShadow]
 
 export function getShadow(id: string): ShadowPassage | undefined {
   return shadowPassages.find((item) => item.id === id)

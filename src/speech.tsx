@@ -5,6 +5,19 @@ import { SpeechContext } from './lib/speech-context.ts'
 import type { SpeakLine } from './lib/speech-context.ts'
 import { plain } from './lib/ruby.ts'
 
+type VoicePack = {
+  voice: SpeechSynthesisVoice | null
+  pitch: number
+  rateScale: number
+}
+
+const PITCHES = [
+  { pitch: 1, rateScale: 1 },
+  { pitch: 0.7, rateScale: 0.92 },
+  { pitch: 1.24, rateScale: 1.06 },
+  { pitch: 0.82, rateScale: 0.88 },
+]
+
 function rankVoice(voice: SpeechSynthesisVoice): number {
   const name = voice.name.toLowerCase()
   let score = voice.localService ? 80 : 0
@@ -16,12 +29,71 @@ function rankVoice(voice: SpeechSynthesisVoice): number {
   return score
 }
 
+function genderOf(voice: SpeechSynthesisVoice): 'f' | 'm' | 'u' {
+  const name = `${voice.name} ${voice.voiceURI}`.toLowerCase()
+  if (/female|woman|\u5973|nanami|kyoko|haruka|mizuki|sayaka|ayane|nozomi|sakura|sumire/.test(name)) return 'f'
+  if (/male|\bman\b|\u7537|ichiro|keita|takumi|osamu|daichi|kenji/.test(name)) return 'm'
+  return 'u'
+}
+
 function japaneseVoices(): SpeechSynthesisVoice[] {
   if (!window.speechSynthesis) return []
   return window.speechSynthesis
     .getVoices()
     .filter((voice) => voice.lang.toLowerCase().replaceAll('_', '-').startsWith('ja'))
     .sort((a, b) => rankVoice(b) - rankVoice(a))
+}
+
+function voicePacks(voices: SpeechSynthesisVoice[], slots: number): VoicePack[] {
+  const female = voices.filter((voice) => genderOf(voice) === 'f')
+  const male = voices.filter((voice) => genderOf(voice) === 'm')
+  const packs: VoicePack[] = []
+  for (let slot = 0; slot < slots; slot += 1) {
+    let voice: SpeechSynthesisVoice | null = null
+    if (female.length && male.length) {
+      const bucket = slot % 2 === 0 ? female : male
+      voice = bucket[Math.floor(slot / 2) % bucket.length] ?? null
+    } else if (voices.length > 1) {
+      voice = voices[slot % voices.length] ?? null
+    } else {
+      voice = voices[0] ?? null
+    }
+    const distinct = voices.length <= 1
+    const tweak = distinct ? PITCHES[slot % PITCHES.length] : PITCHES[0]
+    packs.push({ voice, pitch: tweak?.pitch ?? 1, rateScale: tweak?.rateScale ?? 1 })
+  }
+  for (let slot = 1; slot < packs.length; slot += 1) {
+    const current = packs[slot]
+    const earlier = packs.findIndex((pack, index) => index < slot && pack.voice && pack.voice === current?.voice)
+    if (current && earlier >= 0) {
+      const tweak = PITCHES[slot % PITCHES.length] ?? PITCHES[1]
+      packs[slot] = { voice: current.voice, pitch: tweak?.pitch ?? 0.7, rateScale: tweak?.rateScale ?? 0.92 }
+    }
+  }
+  return packs
+}
+
+export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string; note: string } {
+  if (!window.speechSynthesis) {
+    return { label: '这个浏览器不能朗读', note: '不能朗读时，题目和原文仍可看。' }
+  }
+  if (!voices.length) {
+    return {
+      label: '没有检测到日语语音，将使用默认语音。声调可能不准。',
+      note: '对话只有一套默认语音时，会用不同的音高和语速区分说话人。',
+    }
+  }
+  const female = voices.filter((voice) => genderOf(voice) === 'f').length
+  const male = voices.filter((voice) => genderOf(voice) === 'm').length
+  const top = voices[0]
+  const label = `日语语音：${top?.name ?? '默认'}${top?.localService ? '（本机）' : '（由浏览器提供）'}`
+  if (voices.length === 1) {
+    return { label, note: '只检测到一种日语语音。对话会用不同的音高和语速区分说话人。' }
+  }
+  if (female && male) {
+    return { label, note: `检测到 ${voices.length} 种日语语音，对话会按说话人分开使用。` }
+  }
+  return { label, note: `检测到 ${voices.length} 种日语语音。对话会尽量分配给不同的声音。` }
 }
 
 function splitSentences(text: string): string[] {
@@ -50,21 +122,14 @@ function splitSentences(text: string): string[] {
   return out.filter(Boolean)
 }
 
-function voiceLabel(voices: SpeechSynthesisVoice[]): string {
-  if (!window.speechSynthesis) return '这个浏览器不能朗读'
-  if (!voices.length) return '没有检测到日语语音，将使用默认语音。声调可能不准。'
-  const top = voices[0]
-  return `日语语音：${top.name}${top.localService ? '（本机）' : '（由浏览器提供）'}`
-}
-
 export function SpeechProvider({ children }: { children: ReactNode }) {
   const [speaking, setSpeaking] = useState(false)
   const [activeToken, setActiveToken] = useState(0)
+  const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [label, setLabel] = useState(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return '这个浏览器不能朗读'
-    const voices = japaneseVoices()
-    return voices.length ? voiceLabel(voices) : '正在读取语音…'
+  const [copy, setCopy] = useState(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return describeVoices([])
+    return describeVoices(japaneseVoices())
   })
   const generation = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -81,12 +146,14 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supported) return
-    const update = () => setLabel(voiceLabel(japaneseVoices()))
+    const update = () => setCopy(describeVoices(japaneseVoices()))
     window.speechSynthesis.addEventListener('voiceschanged', update)
-    const timer = window.setTimeout(update, 500)
+    const timer = window.setTimeout(update, 400)
+    const later = window.setTimeout(update, 1500)
     return () => {
       window.speechSynthesis.removeEventListener('voiceschanged', update)
       window.clearTimeout(timer)
+      window.clearTimeout(later)
     }
   }, [supported])
 
@@ -96,6 +163,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     window.speechSynthesis?.cancel()
     setSpeaking(false)
     setActiveToken(0)
+    setActiveSpeaker(null)
   }, [clearTimer])
 
   useEffect(() => {
@@ -115,9 +183,17 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     setError(null)
     setSpeaking(true)
     setActiveToken(token)
-    const pair = japaneseVoices()
-    const queue = lines.flatMap((line) =>
-      splitSentences(plain(line.text)).map((text) => ({ text, slot: line.slot ?? 0 })),
+    setActiveSpeaker(null)
+    const voices = japaneseVoices()
+    const slotCount = Math.max(1, ...lines.map((line) => (line.slot ?? 0) + 1))
+    const packs = voicePacks(voices, slotCount)
+    const queue = lines.flatMap((line, lineIndex) =>
+      splitSentences(plain(line.text)).map((text) => ({
+        text,
+        slot: line.slot ?? 0,
+        speaker: line.speaker,
+        lineIndex,
+      })),
     )
     if (!queue.length) {
       setSpeaking(false)
@@ -142,6 +218,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
         clearTimer()
         setSpeaking(false)
         setActiveToken(0)
+        setActiveSpeaker(null)
         return
       }
       const item = queue[index]
@@ -149,10 +226,14 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       if (!item) return
       const utterance = new SpeechSynthesisUtterance(item.text)
       utterance.lang = 'ja-JP'
-      utterance.rate = rate
-      const voice = pair[item.slot % Math.max(pair.length, 1)]
-      if (voice) utterance.voice = voice
-      else if (item.slot % 2 === 1) utterance.pitch = 0.84
+      const pack = packs[item.slot] ?? packs[0]
+      utterance.rate = Math.min(1.4, Math.max(0.6, rate * (pack?.rateScale ?? 1)))
+      utterance.pitch = pack?.pitch ?? 1
+      if (pack?.voice) utterance.voice = pack.voice
+      utterance.onstart = () => {
+        if (generation.current !== token) return
+        setActiveSpeaker(item.speaker ?? null)
+      }
       utterance.onend = () => window.setTimeout(step, 220)
       utterance.onerror = (event) => {
         if (generation.current !== token) return
@@ -160,6 +241,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
         clearTimer()
         setSpeaking(false)
         setActiveToken(0)
+        setActiveSpeaker(null)
         setError('朗读被浏览器中断了。再播放一次。')
       }
       window.speechSynthesis.resume()
@@ -170,8 +252,18 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   }, [clearTimer])
 
   const value = useMemo(
-    () => ({ speaking, activeToken, voiceLabel: label, error, supported, speak, stop }),
-    [speaking, activeToken, label, error, supported, speak, stop],
+    () => ({
+      speaking,
+      activeToken,
+      activeSpeaker,
+      voiceLabel: copy.label,
+      voiceNote: copy.note,
+      error,
+      supported,
+      speak,
+      stop,
+    }),
+    [speaking, activeToken, activeSpeaker, copy, error, supported, speak, stop],
   )
 
   return <SpeechContext.Provider value={value}>{children}</SpeechContext.Provider>

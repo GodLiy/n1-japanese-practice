@@ -23,7 +23,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetProgress = useCallback(() => {
-    setState((prev) => ({ ...emptyState(), settings: prev.settings }))
+    setState((prev) => ({ ...emptyState(), settings: prev.settings, savedWords: prev.savedWords }))
   }, [])
 
   const getRecord = useCallback(
@@ -31,9 +31,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.records],
   )
 
+  const toggleSaved = useCallback((id: string) => {
+    setState((prev) => {
+      const has = prev.savedWords.includes(id)
+      return {
+        ...prev,
+        savedWords: has ? prev.savedWords.filter((item) => item !== id) : [id, ...prev.savedWords],
+      }
+    })
+  }, [])
+
+  const isSaved = useCallback((id: string) => state.savedWords.includes(id), [state.savedWords])
+
   const value = useMemo(
-    () => ({ state, updateSettings, recordResult, resetProgress, getRecord }),
-    [state, updateSettings, recordResult, resetProgress, getRecord],
+    () => ({ state, updateSettings, recordResult, resetProgress, getRecord, toggleSaved, isSaved }),
+    [state, updateSettings, recordResult, resetProgress, getRecord, toggleSaved, isSaved],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

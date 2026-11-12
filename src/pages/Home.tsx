@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { articles } from '../content/articles.ts'
+import { dictionary } from '../content/dictionary.ts'
 import { listeningItems } from '../content/listening.ts'
 import { readSets } from '../content/readaloud.ts'
 import { roleScenarios } from '../content/roleplay.ts'
@@ -39,13 +41,26 @@ export function Home() {
     pool.salt,
   )
   const speak = speakItems.find((item) => item.id === speakId) ?? speakItems[0]
+  const masteredRead = new Set(
+    articles.filter((item) => (getRecord('article', item.id)?.best ?? 0) >= 80).map((item) => item.id),
+  )
+  const articleId = suggestId(
+    articles.map((item) => item.id),
+    masteredRead,
+    4,
+  )
+  const article = articles.find((item) => item.id === articleId) ?? articles[0]
   const listenAvg = averageBest(state.records, 'listen:')
   const speakAvg = averageBest(
-    Object.fromEntries(Object.entries(state.records).filter(([key]) => !key.startsWith('listen:'))),
+    Object.fromEntries(
+      Object.entries(state.records).filter(([key]) => key.startsWith('shadow:') || key.startsWith('role:') || key.startsWith('read:')),
+    ),
     '',
   )
+  const articleAvg = averageBest(state.records, 'article:')
   const done = Object.values(state.records).filter((record) => record.attempts > 0).length
   const sentenceCount = readSets.reduce((total, set) => total + set.sentences.length, 0)
+  const speakBlurb = speak.summaryZh ?? ('coachZh' in speak ? speak.coachZh : speak.focusZh)
 
   return (
     <div className="home">
@@ -54,7 +69,7 @@ export function Home() {
           <p className="eyebrow">N1 之后</p>
           <h1>听的时候不被表面句式带走，说的时候把语体说对。</h1>
           <p className="lede">
-            给已经通过 N1 的人。新闻和评论、会议敬语、学术短讲、访谈、投诉和交涉。不设单词本，不设语法课。阅读只在听完或说完之后用来核对。
+            给已经通过 N1 的人。听新闻和会议，读一篇评论，再把话说出来。词可以点开，生词记在这台浏览器。
           </p>
         </div>
         <div className="enso" aria-hidden="true" />
@@ -81,6 +96,11 @@ export function Home() {
           <strong className="num">{speakAvg ?? '—'}</strong>
           <small>{speakAvg === null ? '跟读、应对或朗读' : '跟读、应对、朗读'}</small>
         </article>
+        <article className="stat">
+          <span>阅读最好均分</span>
+          <strong className="num">{articleAvg ?? '—'}</strong>
+          <small>{articleAvg === null ? '做完一篇才会出现' : '按各篇最好成绩'}</small>
+        </article>
       </section>
 
       <section>
@@ -89,13 +109,19 @@ export function Home() {
           <Link to={`/listen/${listen.id}`} className="paper card-link">
             <span className="item-kicker">听解 · {listen.minutes}</span>
             <strong>{listen.title}</strong>
-            <p>{listen.focusZh}</p>
+            <p>{listen.summaryZh ?? listen.situationZh}</p>
             <span className="go">开始听</span>
+          </Link>
+          <Link to={`/reading/${article.id}`} className="paper card-link">
+            <span className="item-kicker">阅读 · {article.minutes}</span>
+            <strong>{article.title}</strong>
+            <p>{article.leadZh}</p>
+            <span className="go">开始读</span>
           </Link>
           <Link to={`/speak/${pool.mode}/${speak.id}`} className="paper card-link">
             <span className="item-kicker">{modeLabel[pool.mode]} · {speak.minutes}</span>
             <strong>{speak.title}</strong>
-            <p>{'coachZh' in speak ? speak.coachZh : speak.focusZh}</p>
+            <p>{speakBlurb}</p>
             <span className="go">开始说</span>
           </Link>
         </div>
@@ -107,7 +133,12 @@ export function Home() {
           <Link to="/listen" className="tile">
             <span>听解</span>
             <strong>{listeningItems.length} 篇</strong>
-            <p>要旨、细节、态度、言外之意。听完再看原文。</p>
+            <p>先听再答。原文和题目里的词可以点开。</p>
+          </Link>
+          <Link to="/reading" className="tile">
+            <span>阅读</span>
+            <strong>{articles.length} 篇</strong>
+            <p>评论和说明。读完再答，点词可收入生词。</p>
           </Link>
           <Link to="/speak?focus=shadow" className="tile">
             <span>跟读</span>
@@ -124,15 +155,20 @@ export function Home() {
             <strong>{sentenceCount} 句</strong>
             <p>句调、对比重音、长定语和引用。分数只核字面。</p>
           </Link>
+          <Link to="/words" className="tile">
+            <span>单词本</span>
+            <strong>{dictionary.length} 条</strong>
+            <p>按汉字、假名或中文查。释义是为这套练习写的。</p>
+          </Link>
         </div>
       </section>
 
       <section className="paper note-card">
         <h2>一轮怎么走</h2>
         <ol className="steps">
-          <li>先听完或跟完，再打开原文和参考答案。</li>
+          <li>先听完或读完，再答题。原文里的词可以点开。</li>
           <li>口语看识别稿和目标差在哪。识别错了可以改字，再评分。</li>
-          <li>成绩写在这台浏览器。换设备、换浏览器，记录不会跟着走。</li>
+          <li>成绩和生词写在这台浏览器。换设备、换浏览器，记录不会跟着走。</li>
         </ol>
       </section>
 

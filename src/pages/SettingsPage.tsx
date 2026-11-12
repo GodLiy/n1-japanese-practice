@@ -20,7 +20,7 @@ export function SettingsPage() {
     <section className="settings">
       <p className="eyebrow">本机</p>
       <h1>设置</h1>
-      <p className="lede">没有账号。这些选择和成绩都写在 localStorage，键名是 chowa-v1。</p>
+      <p className="lede">没有账号。语速、假名、主题、成绩和生词都写在 localStorage，键名是 chowa-v1。</p>
 
       <section className="paper inset">
         <h2>朗读速度</h2>
@@ -78,7 +78,7 @@ export function SettingsPage() {
 
       <section className="paper inset">
         <h2>清除成绩</h2>
-        <p className="fine">设置会留下。连续天数、分数和最近记录会删掉。</p>
+        <p className="fine">设置和生词会留下。连续天数、分数和最近记录会删掉。</p>
         {confirming ? (
           <div className="end-actions">
             <button type="button" className="btn danger" onClick={() => { resetProgress(); setConfirming(false) }}>

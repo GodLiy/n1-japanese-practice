@@ -1,10 +1,14 @@
 import type { ReadSet } from '../types.ts'
+import { newsRead } from './read-news.ts'
 
-export const readSets: ReadSet[] = [
+const coreRead: ReadSet[] = [
   {
     id: 'P01',
-    title: '说完，还是在问',
-    focusZh: '句末下降是判断，上升是提问或提议。识别对不了音高，先听，再说，分数只核对字面。',
+    title: '朗读：会议里的短句',
+    titleJa: '短い文',
+    domain: 'prosody',
+    summaryZh: '四句很短的会议日语。约 4 分钟。',
+    focusZh: '先听句尾是落下还是抬起。识别对不了音高，分数只核对字面。',
     minutes: '约 4 分钟',
     sentences: [
       { text: 'この方針で進めます。', noteZh: '语尾下降，说完即停。习惯性上扬会像在征求许可。' },
@@ -15,8 +19,11 @@ export const readSets: ReadSet[] = [
   },
   {
     id: 'P02',
-    title: '对比的重音在后项',
-    focusZh: '「ではなく」把前项放下。真正的判断在后面那个名词上，句尾再下降。',
+    title: '朗读：对照的说法',
+    titleJa: '対比',
+    domain: 'prosody',
+    summaryZh: '几句把两个说法放在一起的句子。约 5 分钟。',
+    focusZh: '重音在后面的名词上，句尾再下降。',
     minutes: '约 5 分钟',
     sentences: [
       { text: '問題は技術ではなく、評価の設計です。', noteZh: '「ではなく」轻轻放下前项。「評価の設計」重新起势，然后收住。' },
@@ -27,8 +34,11 @@ export const readSets: ReadSet[] = [
   },
   {
     id: 'P03',
-    title: '长定语不要读断',
-    focusZh: '长修饰先连着走，到被修饰的名词前再蓄一点。中途的「ではない」不一定是整句的落点。',
+    title: '朗读：比较长的句子',
+    titleJa: '長い文',
+    domain: 'prosody',
+    summaryZh: '新闻和评论里的长句。约 5 分钟。',
+    focusZh: '中途的「ではない」不一定是整句的落点。',
     minutes: '约 5 分钟',
     sentences: [
       {
@@ -51,8 +61,11 @@ export const readSets: ReadSet[] = [
   },
   {
     id: 'P04',
-    title: '引用和插入要换一层',
-    focusZh: '插入语像括号，前后略降。引用用平调，出了引号再回到自己的判断。',
+    title: '朗读：句子里夹着别人的话',
+    titleJa: '引用',
+    domain: 'prosody',
+    summaryZh: '几句带引用或插入的话。约 5 分钟。',
+    focusZh: '插入语像括号。引用用平调，出了引号再回到自己的判断。',
     minutes: '约 5 分钟',
     sentences: [
       { text: '原因は、現時点では、まだ確認できていません。', noteZh: '「現時点では」是插入。主干是「原因は確認できていません」。' },
@@ -63,8 +76,11 @@ export const readSets: ReadSet[] = [
   },
   {
     id: 'P05',
-    title: '把否定的范围说小',
-    focusZh: '婉转不是把整句说虚。「今回は」「その条件なら」「確認の前には」这些限定才是重音。',
+    title: '朗读：带限定的句子',
+    titleJa: '限定',
+    domain: 'prosody',
+    summaryZh: '四句都带有范围上的限定。约 4 分钟。',
+    focusZh: '重音在「今回は」「その条件なら」「確認の前には」，不是把整句说虚。',
     minutes: '约 4 分钟',
     sentences: [
       { text: '今回は、準備が間に合わないかもしれません。', noteZh: '「今回は」先把拒绝缩小。「かもしれません」下降，但是软着陆。' },
@@ -75,8 +91,11 @@ export const readSets: ReadSet[] = [
   },
   {
     id: 'P06',
-    title: '会议上的节拍',
-    focusZh: '会议日语靠节拍。接住、划界、悬置、承诺，是四拍，不要连成一串含糊的答应。',
+    title: '朗读：会议上连续的四句',
+    titleJa: '会議',
+    domain: 'prosody',
+    summaryZh: '会议上连续的四句。约 4 分钟。',
+    focusZh: '四句不要连成一串含糊的答应。每句的落点不一样。',
     minutes: '约 4 分钟',
     sentences: [
       { text: '承知しました。', noteZh: '单独一句。短、低、停住。马上滑进下一句，会像没听完就答应。' },
@@ -86,6 +105,8 @@ export const readSets: ReadSet[] = [
     ],
   },
 ]
+
+export const readSets: ReadSet[] = [...coreRead, ...newsRead]
 
 export function getReadSet(id: string): ReadSet | undefined {
   return readSets.find((item) => item.id === id)

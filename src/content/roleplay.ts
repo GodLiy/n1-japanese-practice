@@ -1,9 +1,12 @@
 import type { RoleScenario } from '../types.ts'
+import { newsRoles } from './role-news.ts'
 
-export const roleScenarios: RoleScenario[] = [
+const coreRoles: RoleScenario[] = [
   {
     id: 'R01',
-    title: '不把正式版答应出去',
+    title: '对部长说话：关于客户要的材料',
+    titleJa: '部長との会話',
+    summaryZh: '部长问你能不能接客户的一个要求。约 1 分钟回答。',
     domain: 'workplace',
     register: 'formal',
     registerZh: '对上级',
@@ -33,7 +36,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R02',
-    title: '接住缩小后的委托',
+    title: '对客户说话：工作范围有变动',
+    titleJa: '顧客との会話',
+    summaryZh: '客户把要求缩小了一些。约 1 分钟回答。',
     domain: 'negotiation',
     register: 'formal',
     registerZh: '对客户',
@@ -57,7 +62,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R03',
-    title: '向管理公司要一个标准',
+    title: '对管理公司说话：楼上的声音',
+    titleJa: '管理会社',
+    summaryZh: '你给管理公司打电话，谈楼上的声音。约 1 分钟回答。',
     domain: 'negotiation',
     register: 'formal',
     registerZh: '投诉，礼貌而明确',
@@ -81,7 +88,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R04',
-    title: '为影响道歉，不认未核实的原因',
+    title: '对客户说话：系统出了问题',
+    titleJa: '障害の連絡',
+    summaryZh: '客户来报故障，并催你处理。约 1 分钟回答。',
     domain: 'workplace',
     register: 'formal',
     registerZh: '对客户的第一次回复',
@@ -105,7 +114,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R05',
-    title: '把主张收回到数据能支撑的范围',
+    title: '研讨会上：回应一个提问',
+    titleJa: '研究会',
+    summaryZh: '有人质疑你的解读。约 1 分钟回答。',
     domain: 'academic',
     register: 'formal',
     registerZh: '研讨会上',
@@ -128,7 +139,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R06',
-    title: '拒绝部长的晚饭',
+    title: '对部长说话：晚上的邀请',
+    titleJa: '夜の誘い',
+    summaryZh: '部长邀请你晚上一起吃饭。约 1 分钟回答。',
     domain: 'workplace',
     register: 'formal',
     registerZh: '对上级',
@@ -153,7 +166,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R07',
-    title: '拒绝朋友的晚饭',
+    title: '对朋友说话：晚上的邀请',
+    titleJa: '友人',
+    summaryZh: '朋友约你晚上吃饭。和上一则是同一个晚上。约 40 秒回答。',
     domain: 'register',
     register: 'casual',
     registerZh: '对朋友',
@@ -178,7 +193,9 @@ export const roleScenarios: RoleScenario[] = [
   },
   {
     id: 'R08',
-    title: '把无偿的追加挡在范围外',
+    title: '对客户说话：收尾时的追加要求',
+    titleJa: '追加の依頼',
+    summaryZh: '项目快结束时，客户想再加一项工作。约 1 分钟回答。',
     domain: 'negotiation',
     register: 'formal',
     registerZh: '对客户',
@@ -200,6 +217,8 @@ export const roleScenarios: RoleScenario[] = [
     coachZh: '「入っていません」是事实，语调放平。「ご相談させてください」把谈判留开。不要说「見積もりを読んでください」。',
   },
 ]
+
+export const roleScenarios: RoleScenario[] = [...coreRoles, ...newsRoles]
 
 export function getRole(id: string): RoleScenario | undefined {
   return roleScenarios.find((item) => item.id === id)
