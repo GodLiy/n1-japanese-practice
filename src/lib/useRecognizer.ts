@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { unlockAudio, watchLevel } from './audio-local.ts'
-import { isAppleTouch } from './device.ts'
+import { isAppleTouch, isWeChat, wechatMicMessage } from './device.ts'
+import { showHostGuide } from './host-guide.ts'
 import { transcribeJapanese } from './local-asr.ts'
 import { useStore } from './useStore.ts'
 
@@ -44,7 +45,7 @@ function pickMime(): string {
 function errorMessage(code: string): string | null {
   if (code === 'aborted' || code === 'no-speech') return null
   if (code === 'not-allowed' || code === 'service-not-allowed') {
-    return '麦克风被拒绝了。请到设置页查看如何重新允许，然后再试。'
+    return isWeChat() ? wechatMicMessage() : '麦克风被拒绝了。请到设置页查看如何重新允许，然后再试。'
   }
   if (code === 'audio-capture') return '没有找到可用的麦克风。可以把句子打在下面。'
   if (code === 'network') {
@@ -56,7 +57,8 @@ function errorMessage(code: string): string | null {
 function deviceError(err: unknown): string {
   const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : ''
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return '麦克风被拒绝了。请到设置页按说明重新允许，然后再试。'
+    if (isWeChat()) showHostGuide('speak')
+    return isWeChat() ? wechatMicMessage() : '麦克风被拒绝了。请到设置页按说明重新允许，然后再试。'
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return '没有找到可用的麦克风。可以把句子打在下面。'
   return '麦克风没有打开。可以再试一次，或直接把句子打在下面。'
@@ -192,7 +194,8 @@ export function useRecognizer() {
     const Ctor = getCtor()
     const record = canUseRecorder()
     if (!Ctor && !record) {
-      setError('这台设备不能录音，也不能识别。把你说的话打在下面。')
+      if (isWeChat()) showHostGuide('speak')
+      setError(isWeChat() ? wechatMicMessage() : '这台设备不能录音，也不能识别。把你说的话打在下面。')
       return
     }
     wantRef.current = true
@@ -248,12 +251,19 @@ export function useRecognizer() {
           settle()
           return
         }
+        const blocked = event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture'
+        if (blocked && (record || recordLive.current)) {
+          recogLive.current = false
+          settle()
+          return
+        }
+        if ((event.error === 'not-allowed' || event.error === 'service-not-allowed') && isWeChat()) showHostGuide('speak')
         const message = errorMessage(event.error)
         if (message && event.error !== 'network') setError(message)
         if (event.error === 'network' && !localAsrRef.current) setError(message)
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
+        if (blocked) {
           recogLive.current = false
-          if (!recordLive.current) wantRef.current = false
+          wantRef.current = false
           settle()
         }
       }

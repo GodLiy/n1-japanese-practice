@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { isAppleTouch, isWeChat } from '../lib/device.ts'
 import { Catalog } from '../components/Catalog.tsx'
 import { readSets } from '../content/readaloud.ts'
 import { roleScenarios } from '../content/roleplay.ts'
@@ -21,6 +22,15 @@ export function SpeakHome() {
       <p className="lede">
         每条标题写明场合。iPhone、iPad、安卓和电脑都可以朗读和说话。浏览器没识别出来时，会用下载到本机的日语模型再听一遍。麦克风权限在 <Link to="/settings">设置</Link> 里。句调本身不会被打分。稿子里带下划线的词可以点开。
       </p>
+      {isWeChat() ? (
+        <p className="form-error">
+          你正在微信里打开。听可以用。说话经常被微信拦住。
+          {isAppleTouch()
+            ? '请打开「系统设置 → 微信 → 麦克风」，再点右上角「···」→「在Safari中打开」。侧面静音开关会关掉声音，请拨到响铃。'
+            : '若不能录音或听不到，点右上角「···」→「在浏览器中打开」。'}
+          句子也可以打在下面评分。
+        </p>
+      ) : null}
 
       <h2 id="shadow">跟读</h2>
       <p className="section-lead">目标是口语形。书面说法折在下面，用来看缩了什么，不要把它读回去。</p>

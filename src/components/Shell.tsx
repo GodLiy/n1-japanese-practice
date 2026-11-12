@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router'
+import { HostGuide } from './HostGuide.tsx'
 import { Scene } from './Scene.tsx'
 import { Component } from 'react'
 import type { ReactNode } from 'react'
@@ -39,6 +40,7 @@ export function Shell() {
   return (
     <>
       <Scene />
+      <HostGuide />
       <a className="skip" href="#content">
         跳到练习
       </a>

@@ -87,7 +87,7 @@ export function WordBook() {
           </button>
         ))}
       </div>
-      <p className="fine">当前 {ordered.length} 条。朗读用浏览器的日语语音。</p>
+      <p className="fine">当前 {ordered.length} 条。有日语语音时用浏览器朗读；vivo 浏览器和安卓微信没有日语语音时，播放网站自带的录音。</p>
       {ordered.length === 0 ? (
         <p className="muted">{onlySaved && !needle ? '还没有收入生词。读文章或看原文时，点开一个词就能收下。' : '词典里没有这个词。'}</p>
       ) : (

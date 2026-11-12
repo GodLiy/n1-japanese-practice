@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation } from 'react-router'
+import { clipFile, clipUrl } from './lib/audio-clips.ts'
 import { unlockAudio } from './lib/audio-local.ts'
-import { desktopChrome, isAppleTouch } from './lib/device.ts'
+import { desktopChrome, isAppleTouch, isWeChat, prefersBundledAudio, unlockWeChatAudio } from './lib/device.ts'
+import { showHostGuide } from './lib/host-guide.ts'
 import { SpeechContext } from './lib/speech-context.ts'
 import type { SpeakLine } from './lib/speech-context.ts'
 import { plain } from './lib/ruby.ts'
+import { splitSentences } from './lib/sentences.ts'
 
 type VoicePack = {
   voiceURI: string | null
@@ -24,6 +27,13 @@ const PITCHES = [
 const SILENT_HINT = '朗读没有开始。请确认没有静音，再点一次播放。iPhone 和 iPad 侧面的静音开关会关掉声音。'
 const NO_JA_VOICE = '这台浏览器或系统里没有日语语音，所以读不出这句日语。iPhone / iPad：设置 → 辅助功能 → 朗读内容 → 声音，确认有日语，并把侧面静音开关拨到响铃。Windows：设置 → 时间和语言 → 语音，添加日语。Mac：系统设置 → 辅助功能 → 朗读内容。安卓：在文字转语音里安装日语。Firefox 只用系统语音。装好后刷新本页。Chrome、Edge 和 Safari 通常自带日语。'
 const NO_TTS = '这台浏览器没有语音合成，不能朗读。题目和原文仍可看。可以改用 Safari、Chrome 或 Edge。'
+const NO_CLIP = '这句没有网站自带的日语录音，而这台浏览器又读不出日语。原文仍可看。听练习、跟读和文章一般都能直接播放；若整页都没有声音，请刷新后再点一次。'
+const PLAY_FAIL = '录音没有播出来。请再点一次播放。微信和部分安卓浏览器要在点击之后才会出声。iPhone 和 iPad 请把侧面静音开关拨到响铃。若仍然没有声音，点右上角「···」，在 Safari 或系统浏览器中打开。'
+const BUNDLED_COPY = {
+  label: '日语录音：网站自带',
+  note: '这台浏览器没有可用的日语语音，所以播放网站里保存好的日语录音。稿子不会发到网上。对话用女声和男声区分，画面上仍会标出谁在说。',
+  needsVoiceHelp: false,
+}
 
 function rankVoice(voice: SpeechSynthesisVoice): number {
   const name = voice.name.toLowerCase()
@@ -116,50 +126,46 @@ export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string;
   return { label, note: `检测到 ${voices.length} 种日语语音。对话会尽量分配给不同的声音。`, needsVoiceHelp: false }
 }
 
-function splitSentences(text: string): string[] {
-  const parts = text
-    .split(/(?<=[。！？])/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-  const out: string[] = []
-  for (const part of parts.length ? parts : [text.trim()]) {
-    if (part.length <= 180) {
-      out.push(part)
-      continue
-    }
-    const bits = part.split(/(?<=、)/)
-    let buffer = ''
-    for (const bit of bits) {
-      if ((buffer + bit).length > 160 && buffer) {
-        out.push(buffer)
-        buffer = bit
-      } else {
-        buffer += bit
-      }
-    }
-    if (buffer) out.push(buffer)
-  }
-  return out.filter(Boolean)
+function clampRate(rate: number): number {
+  return Math.min(1.4, Math.max(0.6, rate))
+}
+
+function voicesReadyNow(): boolean {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return true
+  return window.speechSynthesis.getVoices().length > 0
+}
+
+function queueLines(lines: SpeakLine[]) {
+  return lines.flatMap((line) =>
+    splitSentences(plain(line.text)).map((text) => ({
+      text,
+      slot: line.slot ?? 0,
+      speaker: line.speaker,
+    })),
+  )
 }
 
 export function SpeechProvider({ children }: { children: ReactNode }) {
+  const initialReady = voicesReadyNow()
+  const initialBundled = typeof window !== 'undefined' && prefersBundledAudio(japaneseVoices().length, initialReady)
   const [speaking, setSpeaking] = useState(false)
   const [paused, setPaused] = useState(false)
   const [activeToken, setActiveToken] = useState(0)
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copy, setCopy] = useState(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return describeVoices([])
-    return describeVoices(japaneseVoices())
-  })
+  const [bundled, setBundled] = useState(initialBundled)
+  const [copy, setCopy] = useState(() => (initialBundled ? BUNDLED_COPY : describeVoices(typeof window === 'undefined' ? [] : japaneseVoices())))
   const generation = useRef(0)
   const keepAliveRef = useRef<number | null>(null)
   const watchdogRef = useRef<number | null>(null)
   const pausedRef = useRef(false)
+  const modeRef = useRef<'synth' | 'file'>('synth')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const voicesReadyRef = useRef(initialReady)
   const location = useLocation()
   const pathRef = useRef(location.pathname)
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
-  const canPause = supported && !isAppleTouch() && typeof window.speechSynthesis.pause === 'function'
+  const canPause = !isAppleTouch() && (bundled || (supported && typeof window.speechSynthesis?.pause === 'function'))
 
   const clearKeepAlive = useCallback(() => {
     if (keepAliveRef.current !== null) {
@@ -183,9 +189,41 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     setActiveSpeaker(null)
   }, [])
 
+  const ensureAudio = useCallback(() => {
+    if (!audioRef.current) {
+      const audio = new Audio()
+      audio.preload = 'auto'
+      audio.setAttribute('playsinline', 'true')
+      audioRef.current = audio
+    }
+    return audioRef.current
+  }, [])
+
+  const silenceAudio = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.onended = null
+    audio.onerror = null
+    audio.onplaying = null
+    audio.pause()
+    audio.removeAttribute('src')
+  }, [])
+
+  const refreshVoices = useCallback((ready: boolean) => {
+    voicesReadyRef.current = ready || voicesReadyNow()
+    const voices = japaneseVoices()
+    const next = prefersBundledAudio(voices.length, voicesReadyRef.current)
+    setBundled(next)
+    setCopy(next ? BUNDLED_COPY : describeVoices(voices))
+  }, [])
+
   useEffect(() => {
-    if (!supported) return
-    const update = () => setCopy(describeVoices(japaneseVoices()))
+    if (!supported) {
+      setBundled(true)
+      setCopy(BUNDLED_COPY)
+      return
+    }
+    const update = () => refreshVoices(true)
     window.speechSynthesis.addEventListener('voiceschanged', update)
     const prime = () => {
       window.speechSynthesis.getVoices()
@@ -199,19 +237,20 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timer)
       window.clearTimeout(later)
     }
-  }, [supported])
+  }, [supported, refreshVoices])
 
   const stop = useCallback(() => {
     generation.current += 1
     clearKeepAlive()
     clearWatchdog()
+    silenceAudio()
     try {
       window.speechSynthesis?.cancel()
     } catch {
       /* already idle */
     }
     resetPlaying()
-  }, [clearKeepAlive, clearWatchdog, resetPlaying])
+  }, [clearKeepAlive, clearWatchdog, resetPlaying, silenceAudio])
 
   useEffect(() => {
     if (pathRef.current === location.pathname) return
@@ -220,7 +259,14 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   }, [location.pathname, stop])
 
   const pause = useCallback(() => {
-    if (!canPause || !window.speechSynthesis?.speaking) return
+    if (!canPause) return
+    if (modeRef.current === 'file' && audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause()
+      pausedRef.current = true
+      setPaused(true)
+      return
+    }
+    if (!window.speechSynthesis?.speaking) return
     try {
       window.speechSynthesis.pause()
       pausedRef.current = true
@@ -231,7 +277,20 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   }, [canPause, stop])
 
   const resume = useCallback(() => {
-    if (!canPause || !window.speechSynthesis) return
+    if (!canPause) return
+    if (modeRef.current === 'file' && audioRef.current) {
+      pausedRef.current = false
+      setPaused(false)
+      const pending = audioRef.current.play()
+      if (pending) {
+        pending.catch(() => {
+          setError(PLAY_FAIL)
+          if (isWeChat()) showHostGuide('listen')
+        })
+      }
+      return
+    }
+    if (!window.speechSynthesis) return
     try {
       window.speechSynthesis.resume()
       pausedRef.current = false
@@ -242,19 +301,15 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   }, [canPause, stop])
 
   const speak = useCallback((lines: SpeakLine[], rate: number) => {
-    if (!window.speechSynthesis) {
-      setError(NO_TTS)
-      return 0
-    }
-    const synth = window.speechSynthesis
     unlockAudio()
-    synth.getVoices()
     const token = generation.current + 1
     generation.current = token
     clearKeepAlive()
     clearWatchdog()
-    const wasBusy = synth.speaking || synth.pending || synth.paused
-    if (wasBusy) {
+    silenceAudio()
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined
+    const wasBusy = Boolean(synth && (synth.speaking || synth.pending || synth.paused))
+    if (wasBusy && synth) {
       try {
         synth.cancel()
       } catch {
@@ -264,23 +319,96 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     pausedRef.current = false
     setPaused(false)
     setError(null)
+    const queue = queueLines(lines)
+    if (!queue.length) {
+      resetPlaying()
+      return token
+    }
+    const useFiles = prefersBundledAudio(japaneseVoices().length, voicesReadyRef.current || voicesReadyNow())
+    if (useFiles) {
+      modeRef.current = 'file'
+      const missing = queue.some((item) => !clipFile(item.slot, item.text))
+      if (missing) {
+        generation.current += 1
+        resetPlaying()
+        setError(NO_CLIP)
+        return token
+      }
+      setSpeaking(true)
+      setActiveToken(token)
+      setActiveSpeaker(null)
+      const audio = ensureAudio()
+      const speed = clampRate(rate)
+      const fail = (message: string) => {
+        if (generation.current !== token) return
+        generation.current += 1
+        clearWatchdog()
+        silenceAudio()
+        resetPlaying()
+        setError(message)
+        if (isWeChat()) showHostGuide('listen')
+      }
+      const playAt = (index: number) => {
+        if (generation.current !== token) return
+        const item = queue[index]
+        if (!item) {
+          clearWatchdog()
+          resetPlaying()
+          return
+        }
+        const file = clipFile(item.slot, item.text)
+        if (!file) {
+          fail(NO_CLIP)
+          return
+        }
+        let started = false
+        const arm = (ms: number) => {
+          clearWatchdog()
+          watchdogRef.current = window.setTimeout(() => {
+            if (generation.current !== token || pausedRef.current) return
+            if (!started) fail(PLAY_FAIL)
+          }, ms)
+        }
+        audio.onended = () => {
+          if (generation.current !== token || pausedRef.current) return
+          playAt(index + 1)
+        }
+        audio.onerror = () => fail(PLAY_FAIL)
+        audio.onplaying = () => {
+          if (generation.current !== token) return
+          started = true
+          setActiveSpeaker(item.speaker ?? null)
+          arm(Math.min(120000, Math.max(8000, Math.round((item.text.length * 400) / speed))))
+        }
+        audio.src = clipUrl(file)
+        audio.playbackRate = speed
+        audio.volume = 1
+        arm(8000)
+        const start = () => {
+          if (generation.current !== token || pausedRef.current || started) return
+          const pending = audio.play()
+          if (pending) pending.catch(() => fail(PLAY_FAIL))
+        }
+        start()
+        if (index === 0) unlockWeChatAudio(start)
+      }
+      playAt(0)
+      return token
+    }
+
+    if (!synth) {
+      setError(NO_TTS)
+      resetPlaying()
+      return token
+    }
+    modeRef.current = 'synth'
+    synth.getVoices()
     setSpeaking(true)
     setActiveToken(token)
     setActiveSpeaker(null)
     const voices = japaneseVoices()
     const slotCount = Math.max(1, ...lines.map((line) => (line.slot ?? 0) + 1))
     const packs = voicePacks(voices, slotCount)
-    const queue = lines.flatMap((line) =>
-      splitSentences(plain(line.text)).map((text) => ({
-        text,
-        slot: line.slot ?? 0,
-        speaker: line.speaker,
-      })),
-    )
-    if (!queue.length) {
-      resetPlaying()
-      return token
-    }
     if (desktopChrome()) {
       keepAliveRef.current = window.setInterval(() => {
         if (generation.current !== token || pausedRef.current) return
@@ -320,8 +448,12 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       const pack = packs[item.slot] ?? packs[0]
       utterance.rate = Math.min(1.4, Math.max(0.6, rate * (pack?.rateScale ?? 1)))
       utterance.pitch = pack?.pitch ?? 1
-      const voice = liveVoice(pack)
-      if (voice) utterance.voice = voice
+      try {
+        const voice = liveVoice(pack)
+        if (voice) utterance.voice = voice
+      } catch {
+        /* a listed voice can still be unusable; keep lang=ja-JP */
+      }
       let settled = false
       let started = false
       const began = performance.now()
@@ -381,7 +513,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     if (wasBusy && desktopChrome()) window.setTimeout(step, 40)
     else step()
     return token
-  }, [clearKeepAlive, clearWatchdog, resetPlaying])
+  }, [clearKeepAlive, clearWatchdog, ensureAudio, resetPlaying, silenceAudio])
 
   const value = useMemo(
     () => ({
@@ -394,13 +526,13 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       voiceNote: copy.note,
       needsVoiceHelp: copy.needsVoiceHelp,
       error,
-      supported,
+      supported: supported || bundled,
       speak,
       stop,
       pause,
       resume,
     }),
-    [speaking, paused, canPause, activeToken, activeSpeaker, copy, error, supported, speak, stop, pause, resume],
+    [speaking, paused, canPause, activeToken, activeSpeaker, copy, error, supported, bundled, speak, stop, pause, resume],
   )
 
   return <SpeechContext.Provider value={value}>{children}</SpeechContext.Provider>

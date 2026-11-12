@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { isAppleTouch, isWeChat, wechatMicMessage } from '../lib/device.ts'
+import { showHostGuide } from '../lib/host-guide.ts'
 import { LOCAL_ASR_NOTE } from '../lib/local-asr.ts'
 import { permissionLabel, readMicPermission, requestMicrophone } from '../lib/mic-permission.ts'
 import type { MicPermission } from '../lib/mic-permission.ts'
@@ -27,13 +29,22 @@ export function MicSettings() {
     }
     const next = await requestMicrophone()
     setPermission(next)
-    setNote(next === 'granted' ? '已允许。回到练习后就可以说话。' : next === 'denied' ? '浏览器仍然拒绝了麦克风。请按下面的步骤打开后再试。' : null)
+    if (next === 'denied' && isWeChat()) showHostGuide('speak')
+    setNote(next === 'granted' ? '已允许。回到练习后就可以说话。' : next === 'denied' ? (isWeChat() ? wechatMicMessage() : '浏览器仍然拒绝了麦克风。请按下面的步骤打开后再试。') : null)
   }
 
   return (
     <section className="paper inset" id="mic">
       <h2>麦克风</h2>
       <p>说话练习用的是这台设备的麦克风。当前状态：<strong>{permissionLabel(permission)}</strong>。</p>
+      {isWeChat() ? (
+        <p className="form-error">
+          你正在微信里打开。{isAppleTouch()
+            ? '请先打开「系统设置 → 微信 → 麦克风」，再点右上角「···」→「在Safari中打开」。微信里的网页经常仍然不能录音。'
+            : '请到系统「设置 → 应用 → 微信 → 权限 → 麦克风」打开。若网页仍不能录音，点右上角「···」→「在浏览器中打开」。'}
+          这个网站没有微信公众号接口，不能在微信里强行打开麦克风。句子可以打出来评分。
+        </p>
+      ) : null}
       <div className="end-actions">
         <button type="button" className="btn primary" onClick={() => void ask()}>
           {permission === 'denied' ? '再试一次' : '请求麦克风权限'}
@@ -61,7 +72,9 @@ export function MicSettings() {
         <li>iPhone / iPad（Safari，以及 iOS 上的 Chrome）：设置 → Safari → 麦克风 → 允许。也可以点地址栏左侧的图标，把麦克风改成允许。侧面静音开关不会挡住麦克风，但会关掉朗读。</li>
         <li>电脑上的 Chrome / Edge：点地址栏左侧的锁或设置图标 → 网站设置 → 麦克风 → 允许，然后刷新。</li>
         <li>Firefox：点地址栏左侧的权限图标 → 麦克风 → 允许。Firefox 通常没有浏览器自带的语音识别，打开本机识别后仍可以把录音转成文字。</li>
-        <li>安卓：点地址栏的锁 → 权限 → 麦克风 → 允许。若系统也关了，到系统设置 → 应用 → 正在用的浏览器 → 权限 → 麦克风。</li>
+        <li>安卓：点地址栏的锁 → 权限 → 麦克风 → 允许。若系统也关了，到系统设置 → 应用 → 正在用的浏览器 → 权限 → 麦克风。vivo 浏览器可以说话；听练习不依赖系统日语语音，会播放网站自带的录音。</li>
+        <li>微信里打开（iPhone / iPad）：「系统设置 → 微信 → 麦克风」要打开。即便打开了，微信里的网页经常仍然不能录音。点右上角「···」→「在Safari中打开」，再用 Safari 说话。侧面静音开关会关掉朗读和网页里的声音，请拨到响铃，它不挡麦克风。</li>
+        <li>微信里打开（安卓，含 vivo）：到系统「设置 → 应用 → 微信 → 权限 → 麦克风」。若网页仍不能录音或朗读，点右上角「···」→「在浏览器中打开」。本站没有微信公众号接口，不能在微信里强行打开麦克风。</li>
       </ul>
     </section>
   )
