@@ -115,6 +115,7 @@ p { margin: 0.4rem 0; }
   padding: 6px 12px;
   border-radius: 999px;
 }
+.text-btn { min-height: 44px; display: inline-flex; align-items: center; }
 .nav-link.is-active, .text-btn.is-active, .bottom-link.is-active {
   color: var(--accent-ink);
   background: var(--accent);
@@ -309,6 +310,10 @@ rt {
 .mic-zh { font-size: 0.75rem; }
 .mic-live { animation: pulse 1.4s ease-out infinite; }
 .replay audio { display: block; width: min(100%, 420px); height: 44px; }
+.level { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 8px; }
+.level span { display: block; height: 100%; background: var(--accent); }
+.mic-pref { margin-top: 14px; align-items: flex-start; }
+.attempt a { color: var(--accent); }
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mic) 50%, transparent); }
   100% { box-shadow: 0 0 0 16px transparent; }

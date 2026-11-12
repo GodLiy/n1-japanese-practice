@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation } from 'react-router'
+import { unlockAudio } from './lib/audio-local.ts'
 import { desktopChrome, isAppleTouch } from './lib/device.ts'
 import { SpeechContext } from './lib/speech-context.ts'
 import type { SpeakLine } from './lib/speech-context.ts'
@@ -21,6 +22,8 @@ const PITCHES = [
 ]
 
 const SILENT_HINT = '朗读没有开始。请确认没有静音，再点一次播放。iPhone 和 iPad 侧面的静音开关会关掉声音。'
+const NO_JA_VOICE = '这台浏览器或系统里没有日语语音，所以读不出这句日语。iPhone / iPad：设置 → 辅助功能 → 朗读内容 → 声音，确认有日语，并把侧面静音开关拨到响铃。Windows：设置 → 时间和语言 → 语音，添加日语。Mac：系统设置 → 辅助功能 → 朗读内容。安卓：在文字转语音里安装日语。Firefox 只用系统语音。装好后刷新本页。Chrome、Edge 和 Safari 通常自带日语。'
+const NO_TTS = '这台浏览器没有语音合成，不能朗读。题目和原文仍可看。可以改用 Safari、Chrome 或 Edge。'
 
 function rankVoice(voice: SpeechSynthesisVoice): number {
   const name = voice.name.toLowerCase()
@@ -89,14 +92,15 @@ function liveVoice(pack: VoicePack | undefined): SpeechSynthesisVoice | null {
   return japaneseVoices().find((voice) => voice.voiceURI === pack.voiceURI && voice.name === pack.name) ?? null
 }
 
-export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string; note: string } {
-  if (!window.speechSynthesis) {
-    return { label: '这个浏览器不能朗读', note: '不能朗读时，题目和原文仍可看。' }
+export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string; note: string; needsVoiceHelp: boolean } {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    return { label: '这个浏览器不能朗读', note: NO_TTS, needsVoiceHelp: true }
   }
   if (!voices.length) {
     return {
-      label: '没有检测到日语语音，将使用默认语音。声调可能不准。',
-      note: '对话只有一套默认语音时，会用不同的音高和语速区分说话人。',
+      label: '没有日语语音',
+      note: NO_JA_VOICE,
+      needsVoiceHelp: true,
     }
   }
   const female = voices.filter((voice) => genderOf(voice) === 'f').length
@@ -104,12 +108,12 @@ export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string;
   const top = voices[0]
   const label = `日语语音：${top?.name ?? '默认'}${top?.localService ? '（本机）' : '（由浏览器提供）'}`
   if (voices.length === 1) {
-    return { label, note: '只检测到一种日语语音。对话会用不同的音高和语速区分说话人。' }
+    return { label, note: '只检测到一种日语语音。对话会用不同的音高和语速区分说话人。', needsVoiceHelp: false }
   }
   if (female && male) {
-    return { label, note: `检测到 ${voices.length} 种日语语音，对话会按说话人分开使用。` }
+    return { label, note: `检测到 ${voices.length} 种日语语音，对话会按说话人分开使用。`, needsVoiceHelp: false }
   }
-  return { label, note: `检测到 ${voices.length} 种日语语音。对话会尽量分配给不同的声音。` }
+  return { label, note: `检测到 ${voices.length} 种日语语音。对话会尽量分配给不同的声音。`, needsVoiceHelp: false }
 }
 
 function splitSentences(text: string): string[] {
@@ -239,10 +243,11 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   const speak = useCallback((lines: SpeakLine[], rate: number) => {
     if (!window.speechSynthesis) {
-      setError('这个浏览器不能朗读。还可以看原文、做题、对照参考答案。')
+      setError(NO_TTS)
       return 0
     }
     const synth = window.speechSynthesis
+    unlockAudio()
     synth.getVoices()
     const token = generation.current + 1
     generation.current = token
@@ -356,13 +361,21 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
           fail('浏览器没有允许朗读。请再点一次播放。')
           return
         }
+        if (event.error === 'language-unavailable' || event.error === 'voice-unavailable' || event.error === 'synthesis-unavailable') {
+          fail(event.error === 'synthesis-unavailable' ? NO_TTS : NO_JA_VOICE)
+          return
+        }
+        if (event.error === 'synthesis-failed' && japaneseVoices().length === 0) {
+          fail(NO_JA_VOICE)
+          return
+        }
         fail('朗读被浏览器中断了。再播放一次。')
       }
       try {
         if (synth.paused) synth.resume()
         synth.speak(utterance)
       } catch {
-        fail('这个浏览器不能朗读。还可以看原文、做题、对照参考答案。')
+        fail(NO_TTS)
       }
     }
     if (wasBusy && desktopChrome()) window.setTimeout(step, 40)
@@ -379,6 +392,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       activeSpeaker,
       voiceLabel: copy.label,
       voiceNote: copy.note,
+      needsVoiceHelp: copy.needsVoiceHelp,
       error,
       supported,
       speak,

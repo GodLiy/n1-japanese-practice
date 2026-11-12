@@ -8,6 +8,7 @@ export const defaultSettings: Settings = {
   furigana: true,
   hints: true,
   theme: 'light',
+  localAsr: true,
 }
 
 export function emptyState(): Persisted {

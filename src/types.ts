@@ -181,6 +181,8 @@ export type Settings = {
   furigana: boolean
   hints: boolean
   theme: 'light' | 'dark'
+  /** When the browser recognizer returns nothing, transcribe the recording on this device. */
+  localAsr: boolean
 }
 
 export type ItemRecord = {

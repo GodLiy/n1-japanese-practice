@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { unlockAudio, watchLevel } from './audio-local.ts'
 import { isAppleTouch } from './device.ts'
+import { transcribeJapanese } from './local-asr.ts'
+import { useStore } from './useStore.ts'
 
 type RecAlternative = { transcript: string }
 type RecResult = { isFinal: boolean; 0?: RecAlternative }
@@ -9,6 +12,7 @@ type Rec = {
   lang: string
   continuous: boolean
   interimResults: boolean
+  maxAlternatives: number
   onresult: ((event: RecEvent) => void) | null
   onerror: ((event: RecError) => void) | null
   onend: (() => void) | null
@@ -40,47 +44,65 @@ function pickMime(): string {
 function errorMessage(code: string): string | null {
   if (code === 'aborted' || code === 'no-speech') return null
   if (code === 'not-allowed' || code === 'service-not-allowed') {
-    return '麦克风被拒绝了。请在浏览器设置里允许此网站使用麦克风，然后重试。'
+    return '麦克风被拒绝了。请到设置页查看如何重新允许，然后再试。'
   }
   if (code === 'audio-capture') return '没有找到可用的麦克风。可以把句子打在下面。'
   if (code === 'network') {
-    return '识别服务连不上。声音没有上传到这个网站。可以听自己的录音，或把句子打出来对照。'
+    return '浏览器的识别服务连不上。声音没有上传。若已打开本机识别，会用刚才的录音再听一遍。'
   }
-  return '识别中断了。可以再试一次，听录音，或直接改正文字。'
+  return '识别中断了。可以再试一次，或直接改正文字。'
 }
 
 function deviceError(err: unknown): string {
   const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : ''
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return '麦克风被拒绝了。请在浏览器设置里允许此网站使用麦克风，然后重试。'
+    return '麦克风被拒绝了。请到设置页按说明重新允许，然后再试。'
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return '没有找到可用的麦克风。可以把句子打在下面。'
   return '麦克风没有打开。可以再试一次，或直接把句子打在下面。'
 }
 
 export function useRecognizer() {
+  const { state } = useStore()
+  const localAsrRef = useRef(state.settings.localAsr)
+  localAsrRef.current = state.settings.localAsr
   const recRef = useRef<Rec | null>(null)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const wantRef = useRef(false)
   const finalRef = useRef('')
+  const textRef = useRef('')
   const audioUrlRef = useRef<string | null>(null)
   const recogLive = useRef(false)
   const recordLive = useRef(false)
+  const peakRef = useRef(0)
+  const busyRef = useRef(false)
+  const stopMeter = useRef<(() => void) | null>(null)
   const [listening, setListening] = useState(false)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [level, setLevel] = useState(0)
+  const [heard, setHeard] = useState(false)
+  const [asrStatus, setAsrStatus] = useState<string | null>(null)
   const apple = typeof window !== 'undefined' && isAppleTouch()
   const supported = typeof window !== 'undefined' && Boolean(getCtor())
   const canRecord = typeof window !== 'undefined' && canUseRecorder()
   const secure = typeof window !== 'undefined' && window.isSecureContext
   const inputMode: InputMode = supported ? 'speech' : canRecord ? 'record' : 'type'
 
+  const writeText = (value: string) => {
+    textRef.current = value
+    setText(value)
+  }
+
   const releaseStream = () => {
+    stopMeter.current?.()
+    stopMeter.current = null
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
+    setLevel(0)
   }
 
   const rememberAudio = (url: string) => {
@@ -92,6 +114,37 @@ export function useRecognizer() {
   const settle = useCallback(() => {
     if (!recogLive.current && !recordLive.current) setListening(false)
   }, [])
+
+  const runLocal = useCallback(async (blob: Blob) => {
+    if (!localAsrRef.current) {
+      if (!textRef.current.trim()) {
+        setError(peakRef.current > 0.012
+          ? '听到了声音，但浏览器没有识别出文字。可以在设置里打开本机识别，或把句子打在下面。'
+          : '没有听到足够的声音。请靠近麦克风再说一次。设置里可以检查麦克风是否已允许。')
+      }
+      return
+    }
+    if (blob.size < 400) return
+    if (peakRef.current <= 0.012 && !textRef.current.trim()) {
+      setError('没有听到足够的声音。请靠近麦克风，看到音量条在动之后再说。')
+      return
+    }
+    if (textRef.current.trim() && supported) return
+    busyRef.current = true
+    setAsrStatus('浏览器没有给出文字。正在用本机日语模型再听一遍…')
+    try {
+      const { text: heardText, truncated } = await transcribeJapanese(blob, setAsrStatus)
+      if (heardText) writeText(heardText)
+      else setError('听到了声音，但没有识别出日语。可以再说一次，或把句子打在下面。')
+      if (truncated) setAsrStatus('只识别了前 90 秒。')
+      else setAsrStatus(null)
+    } catch {
+      setError('本机识别模型没有准备好。声音没有上传。可以稍后再试，或把句子打在下面。')
+      setAsrStatus(null)
+    } finally {
+      busyRef.current = false
+    }
+  }, [supported])
 
   const stop = useCallback(() => {
     wantRef.current = false
@@ -127,10 +180,15 @@ export function useRecognizer() {
   }, [])
 
   const start = useCallback(() => {
+    if (busyRef.current) {
+      setError('上一段还在本机识别，请稍等。')
+      return
+    }
     if (!window.isSecureContext) {
       setError('麦克风需要安全连接（HTTPS）。')
       return
     }
+    unlockAudio()
     const Ctor = getCtor()
     const record = canUseRecorder()
     if (!Ctor && !record) {
@@ -139,7 +197,10 @@ export function useRecognizer() {
     }
     wantRef.current = true
     finalRef.current = ''
-    setText('')
+    peakRef.current = 0
+    setHeard(false)
+    setAsrStatus(null)
+    writeText('')
     setError(null)
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current)
@@ -157,6 +218,7 @@ export function useRecognizer() {
       rec.lang = 'ja-JP'
       rec.continuous = !apple
       rec.interimResults = !apple
+      rec.maxAlternatives = 1
       let restarts = 0
       rec.onresult = (event) => {
         if (apple) {
@@ -167,7 +229,7 @@ export function useRecognizer() {
           }
           if (!piece) return
           finalRef.current = `${finalRef.current}${piece}`
-          setText(finalRef.current)
+          writeText(finalRef.current)
           return
         }
         let finalText = ''
@@ -178,7 +240,7 @@ export function useRecognizer() {
           if (result?.isFinal) finalText += piece
           else interim += piece
         }
-        setText(finalText + interim)
+        writeText(finalText + interim)
       }
       rec.onerror = (event) => {
         if (event.error === 'audio-capture' && recordLive.current) {
@@ -187,7 +249,8 @@ export function useRecognizer() {
           return
         }
         const message = errorMessage(event.error)
-        if (message) setError(message)
+        if (message && event.error !== 'network') setError(message)
+        if (event.error === 'network' && !localAsrRef.current) setError(message)
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
           recogLive.current = false
           if (!recordLive.current) wantRef.current = false
@@ -195,14 +258,18 @@ export function useRecognizer() {
         }
       }
       rec.onend = () => {
-        if (wantRef.current && apple && restarts < 30) {
+        if (wantRef.current && !apple && restarts < 8) {
           restarts += 1
-          try {
-            rec.start()
-            return
-          } catch {
-            /* this session cannot restart */
-          }
+          window.setTimeout(() => {
+            if (!wantRef.current) return
+            try {
+              rec.start()
+            } catch {
+              recogLive.current = false
+              settle()
+            }
+          }, 200)
+          return
         }
         recogLive.current = false
         settle()
@@ -232,6 +299,10 @@ export function useRecognizer() {
         }
         releaseStream()
         streamRef.current = stream
+        stopMeter.current = watchLevel(stream, setLevel, (rms) => {
+          if (rms > peakRef.current) peakRef.current = rms
+          if (rms > 0.012) setHeard(true)
+        })
         const mime = pickMime()
         const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
         chunksRef.current = []
@@ -245,6 +316,7 @@ export function useRecognizer() {
           releaseStream()
           mediaRef.current = null
           settle()
+          if (blob.size > 0) void runLocal(blob)
         }
         mediaRef.current = recorder
         recorder.start()
@@ -258,7 +330,7 @@ export function useRecognizer() {
         setListening(false)
         setError(deviceError(err))
       })
-  }, [apple, settle])
+  }, [apple, runLocal, settle])
 
   useEffect(() => {
     return () => {
@@ -278,5 +350,21 @@ export function useRecognizer() {
     }
   }, [])
 
-  return { listening, text, setText, error, supported, canRecord, secure, inputMode, audioUrl, start, stop }
+  return {
+    listening,
+    text,
+    setText: writeText,
+    error,
+    supported,
+    canRecord,
+    secure,
+    inputMode,
+    audioUrl,
+    level,
+    heard,
+    asrStatus,
+    localAsr: state.settings.localAsr,
+    start,
+    stop,
+  }
 }

@@ -10,6 +10,7 @@ export type SpeechValue = {
   activeSpeaker: string | null
   voiceLabel: string
   voiceNote: string
+  needsVoiceHelp: boolean
   error: string | null
   supported: boolean
   speak: (lines: SpeakLine[], rate: number) => number

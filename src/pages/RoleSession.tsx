@@ -75,6 +75,9 @@ function RolePlayer({ item }: { item: RoleScenario }) {
         secure={rec.secure}
         inputMode={rec.inputMode}
         audioUrl={rec.audioUrl}
+        level={rec.level}
+        heard={rec.heard}
+        asrStatus={rec.asrStatus}
         onChange={(value) => {
           setSaved(false)
           rec.setText(value)

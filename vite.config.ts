@@ -17,6 +17,9 @@ function pagesFallback(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), pagesFallback()],
+  optimizeDeps: {
+    exclude: ['@huggingface/transformers'],
+  },
   server: {
     host: '127.0.0.1',
     port: 4317,

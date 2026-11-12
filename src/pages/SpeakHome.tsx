@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Catalog } from '../components/Catalog.tsx'
 import { readSets } from '../content/readaloud.ts'
 import { roleScenarios } from '../content/roleplay.ts'
@@ -19,7 +19,7 @@ export function SpeakHome() {
       <p className="eyebrow">说</p>
       <h1>跟读、应对、朗读</h1>
       <p className="lede">
-        每条标题写明场合。iPhone、iPad、安卓和电脑都可以朗读和说话。识别不稳定时可以录音回听，或把句子打出来再评分。句调本身不会被打分。稿子里带下划线的词可以点开。
+        每条标题写明场合。iPhone、iPad、安卓和电脑都可以朗读和说话。浏览器没识别出来时，会用下载到本机的日语模型再听一遍。麦克风权限在 <Link to="/settings">设置</Link> 里。句调本身不会被打分。稿子里带下划线的词可以点开。
       </p>
 
       <h2 id="shadow">跟读</h2>

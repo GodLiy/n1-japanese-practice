@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import type { InputMode } from '../lib/useRecognizer.ts'
 
 export function AttemptBox({
@@ -9,6 +10,9 @@ export function AttemptBox({
   secure,
   inputMode = 'type',
   audioUrl = null,
+  level = 0,
+  heard = false,
+  asrStatus = null,
   onChange,
   onMic,
 }: {
@@ -20,18 +24,23 @@ export function AttemptBox({
   secure: boolean
   inputMode?: InputMode
   audioUrl?: string | null
+  level?: number
+  heard?: boolean
+  asrStatus?: string | null
   onChange: (value: string) => void
   onMic: () => void
 }) {
-  const status = listening
-    ? inputMode === 'record'
-      ? '正在录音。说完再点一次，然后可以回听。'
-      : '正在听日语。说完再点一次。'
-    : inputMode === 'speech'
-      ? '点麦克风，用日语说。识别结果可以改，也可以回听刚才的录音。'
-      : inputMode === 'record'
-        ? '点麦克风录音。这台浏览器不能自动转成文字，可以说完回听，再把句子打出来。'
-        : '这台浏览器不能识别，也不能录音。把你说的话打在下面。'
+  const status = asrStatus
+    ? asrStatus
+    : listening
+      ? heard || level >= 0.08
+        ? '正在听到声音。说完再点一次。'
+        : '麦克风已打开，还没有听到声音。请靠近一点。'
+      : inputMode === 'speech'
+        ? '点麦克风，用日语说。能听到声音时，音量条会动。识别结果可以改。'
+        : inputMode === 'record'
+          ? '点麦克风录音。浏览器不能直接识别时，会用本机模型把录音转成文字。'
+          : '这台浏览器不能识别，也不能录音。把你说的话打在下面。'
 
   const placeholder = inputMode === 'speech'
     ? '这里会出现日语。明显的误转换可以直接改，再看分数。'
@@ -48,6 +57,11 @@ export function AttemptBox({
           <p className="attempt-status" aria-live="polite">{status}</p>
           {!secure ? <p className="form-error">当前不是安全连接，麦克风不可用。</p> : null}
           {error ? <p className="form-error">{error}</p> : null}
+          {listening ? (
+            <div className="level" aria-hidden="true">
+              <span style={{ width: `${Math.round(level * 100)}%` }} />
+            </div>
+          ) : null}
         </div>
       </div>
       {audioUrl ? (
@@ -69,7 +83,9 @@ export function AttemptBox({
           onChange={(event) => onChange(event.target.value)}
         />
       </label>
-      <p className="fine">声音不会上传到这个网站，也不会写进练习记录。若浏览器提供识别，可能由浏览器自己的服务处理，这不是本站在接收录音。</p>
+      <p className="fine">
+        声音不会上传，也不会写进练习记录。麦克风权限和本机识别在 <Link to="/settings">设置</Link> 里。浏览器若提供识别，可能由浏览器自己的服务处理。
+      </p>
     </div>
   )
 }

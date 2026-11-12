@@ -65,7 +65,7 @@ export function PlayBar({
         </button>
       </div>
       <p className="voice-label">{speech.voiceLabel}</p>
-      {speakers.length > 1 ? <p className="fine">{speech.voiceNote}</p> : null}
+      {speakers.length > 1 || speech.needsVoiceHelp ? <p className="fine">{speech.voiceNote}</p> : null}
       {isAppleTouch() ? <p className="fine">iPhone 和 iPad 侧面的静音开关会关掉朗读。要出声时，请拨到响铃。</p> : null}
       {mine && speech.activeSpeaker ? <p className="now-speaking">正在说：<span className="jp-ui">{speech.activeSpeaker}</span></p> : null}
       {speech.error ? <p className="form-error">{speech.error}</p> : null}
