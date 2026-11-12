@@ -45,23 +45,13 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # Sideload key. The private key is not in the repo.
-      # Secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
-      - name: Decode keystore
-        run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/chowa-release.jks"
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-
+      # Signed with android/sideload.keystore. This repository cannot store Actions secrets,
+      # so the sideload certificate and its password live in the repo. It is not a Play upload key.
       - name: Build release APK
         working-directory: android
         run: |
           ./gradlew assembleRelease --no-daemon
           test -f app/build/outputs/apk/release/app-release.apk
-        env:
-          KEYSTORE_FILE: ${{ runner.temp }}/chowa-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Name the APK
         run: |

@@ -23,7 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Android signing material and local SDK path
-*.jks
-*.keystore
+# Android local SDK path. The sideload certificate is tracked on purpose.
 android/local.properties

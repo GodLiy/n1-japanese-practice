@@ -8,7 +8,7 @@
 
 ## 安卓应用
 
-可以从 [Releases](https://github.com/GodLiy/n1-japanese-practice/releases) 下载 `chowa-1.0.0.apk`，安装到自己的安卓手机。系统若提示未知来源，允许这次安装即可。第一次点「说话」时，手机会询问麦克风权限，点允许。录音只留在这台手机上，不会上传。听、阅读和说使用安装包里的日语录音。
+可以从 [Releases](https://github.com/GodLiy/n1-japanese-practice/releases) 下载 `chowa-1.0.0.apk`，安装到自己的安卓手机。系统若提示未知来源，允许这次安装即可。第一次点「说话」时，手机会询问麦克风权限，点允许。录音只留在这台手机上，不会上传。听、阅读和说使用安装包里的日语录音。安装包用仓库里的旁加载证书签名（`android/sideload.keystore`，口令在 `android/keystore.properties`），以后可以覆盖安装。这不是应用商店的上传密钥。
 
 浏览器里的网站仍然可以用：<https://godliy.github.io/n1-japanese-practice/>
 

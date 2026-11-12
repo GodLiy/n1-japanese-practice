@@ -1,6 +1,18 @@
 apply plugin: 'com.android.application'
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 def keystorePath = System.getenv("KEYSTORE_FILE")
+if (!keystorePath && keystoreProperties.getProperty("storeFile")) {
+    keystorePath = rootProject.file(keystoreProperties.getProperty("storeFile")).absolutePath
+}
+def keystorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+def keyAliasName = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+def keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
 
 android {
     namespace = "com.godliy.chowa"
@@ -22,9 +34,9 @@ android {
         release {
             if (keystorePath) {
                 storeFile file(keystorePath)
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+                storePassword keystorePassword
+                keyAlias keyAliasName
+                keyPassword keyPassword
             }
         }
     }
