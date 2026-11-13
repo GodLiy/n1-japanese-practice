@@ -52,4 +52,6 @@ jobs:
           git -C /tmp/site-publish add -A
           git -C /tmp/site-publish -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "Publish the site mirror."
           git -C /tmp/site-publish remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git -C /tmp/site-publish -c "http.extraheader=AUTHORIZATION: bearer ${GH_TOKEN}" push --force origin site
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -C /tmp/site-publish config http.https://github.com/.extraheader "AUTHORIZATION: basic ${auth}"
+          git -C /tmp/site-publish push --force origin site

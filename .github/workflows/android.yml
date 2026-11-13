@@ -117,4 +117,6 @@ jobs:
           cp -a /tmp/apk-parts/. /tmp/site-apk/apk/
           git -C /tmp/site-apk add apk
           git -C /tmp/site-apk -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "Add the Android package to the China mirror."
-          git -C /tmp/site-apk -c "http.extraheader=AUTHORIZATION: bearer ${GH_TOKEN}" push origin HEAD:site
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -C /tmp/site-apk config http.https://github.com/.extraheader "AUTHORIZATION: basic ${auth}"
+          git -C /tmp/site-apk push origin HEAD:site
