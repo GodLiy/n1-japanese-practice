@@ -67,11 +67,96 @@ export function watchLevel(stream: MediaStream, onShown: (level: number) => void
   }
 }
 
+export class DecodeError extends Error {
+  constructor(message = 'decode') {
+    super(message)
+    this.name = 'DecodeError'
+  }
+}
+
+/** Linear resample to the 16 kHz mono Whisper expects. */
+export function resampleTo16k(input: Float32Array, sampleRate: number): Float32Array {
+  if (input.length === 0) return input
+  if (!sampleRate || Math.abs(sampleRate - 16000) < 1) return input
+  const ratio = sampleRate / 16000
+  const length = Math.max(1, Math.round(input.length / ratio))
+  const out = new Float32Array(length)
+  const last = input.length - 1
+  for (let i = 0; i < length; i += 1) {
+    const pos = i * ratio
+    const index = Math.floor(pos)
+    const frac = pos - index
+    const a = input[index] ?? 0
+    const b = input[Math.min(index + 1, last)] ?? a
+    out[i] = a + (b - a) * frac
+  }
+  return out
+}
+
+export type PcmCapture = {
+  stop: () => Float32Array
+}
+
+/**
+ * Record the live microphone as PCM. Android and several mobile browsers
+ * cannot decode the MediaRecorder file afterwards, so recognition uses this.
+ */
+export function startPcmCapture(stream: MediaStream): PcmCapture | null {
+  const ctx = unlockAudio()
+  if (!ctx || typeof ctx.createScriptProcessor !== 'function') return null
+  if (ctx.state === 'suspended') void ctx.resume()
+  let source: MediaStreamAudioSourceNode
+  let processor: ScriptProcessorNode
+  try {
+    source = ctx.createMediaStreamSource(stream)
+    processor = ctx.createScriptProcessor(4096, 1, 1)
+  } catch {
+    return null
+  }
+  const chunks: Float32Array[] = []
+  let stopped = false
+  let taken: Float32Array | null = null
+  processor.onaudioprocess = (event) => {
+    if (stopped) return
+    chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)))
+    event.outputBuffer.getChannelData(0).fill(0)
+  }
+  try {
+    source.connect(processor)
+    processor.connect(ctx.destination)
+  } catch {
+    return null
+  }
+  return {
+    stop() {
+      if (taken) return taken
+      stopped = true
+      try { processor.disconnect() } catch { /* already stopped */ }
+      try { source.disconnect() } catch { /* already stopped */ }
+      const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+      const merged = new Float32Array(total)
+      let offset = 0
+      for (const chunk of chunks) {
+        merged.set(chunk, offset)
+        offset += chunk.length
+      }
+      taken = resampleTo16k(merged, ctx.sampleRate || 48000)
+      return taken
+    },
+  }
+}
+
 export async function blobTo16k(blob: Blob): Promise<Float32Array> {
   const ctx = unlockAudio()
-  if (!ctx) throw new Error('这台浏览器不能处理录音。可以把句子打在下面。')
+  if (!ctx) throw new DecodeError('no-audio-context')
   if (ctx.state === 'suspended') await ctx.resume()
-  const decoded = await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0))
+  let decoded: AudioBuffer
+  try {
+    decoded = await ctx.decodeAudioData((await blob.arrayBuffer()).slice(0))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'decode'
+    throw new DecodeError(message)
+  }
   const frames = Math.max(1, Math.ceil(decoded.duration * 16000))
   const offline = new OfflineAudioContext(1, frames, 16000)
   const source = offline.createBufferSource()

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { unlockAudio, watchLevel } from './audio-local.ts'
+import { startPcmCapture, unlockAudio, watchLevel, type PcmCapture } from './audio-local.ts'
 import { baiduMicMessage, isAppleTouch, isBaidu, isNativeApp, isWeChat, wechatMicMessage } from './device.ts'
 import { showHostGuide } from './host-guide.ts'
 import { canCaptureMic, openMicrophone } from './mic-open.ts'
 import { prepareNativeMic, quietPlayback } from './native-mic.ts'
-import { cancelModelLoad, transcribeJapanese } from './local-asr.ts'
+import { asrFailureMessage, cancelModelLoad, transcribeJapanese, AsrCancelled } from './local-asr.ts'
 import { useStore } from './useStore.ts'
 
 type RecAlternative = { transcript: string }
@@ -93,6 +93,7 @@ export function useRecognizer() {
   const healthyRef = useRef(true)
   const busyRef = useRef(false)
   const stopMeter = useRef<(() => void) | null>(null)
+  const pcmRef = useRef<PcmCapture | null>(null)
   const [listening, setListening] = useState(false)
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -111,9 +112,24 @@ export function useRecognizer() {
     setText(value)
   }
 
+  const takeSamples = (): Float32Array | null => {
+    const capture = pcmRef.current
+    pcmRef.current = null
+    if (!capture) return null
+    try {
+      return capture.stop()
+    } catch {
+      return null
+    }
+  }
+
   const releaseStream = () => {
     stopMeter.current?.()
     stopMeter.current = null
+    if (pcmRef.current) {
+      try { pcmRef.current.stop() } catch { /* already stopped */ }
+      pcmRef.current = null
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     setLevel(0)
@@ -129,7 +145,8 @@ export function useRecognizer() {
     if (!recogLive.current && !recordLive.current) setListening(false)
   }, [])
 
-  const runLocal = useCallback(async (blob: Blob) => {
+  const runLocal = useCallback(async (blob: Blob, samples: Float32Array | null) => {
+    const pcmOk = !!samples && samples.length >= 1600
     if (!localAsrRef.current) {
       if (!textRef.current.trim()) {
         if (isBaidu() && peakRef.current <= 0.012 && !healthyRef.current) {
@@ -143,14 +160,14 @@ export function useRecognizer() {
       }
       return
     }
-    if (blob.size < 400) {
+    if (!pcmOk && blob.size < 400) {
       if (isBaidu() && peakRef.current <= 0.012 && !healthyRef.current) {
         showHostGuide('speak')
         setError(baiduMicMessage())
       }
       return
     }
-    if (peakRef.current <= 0.012 && !textRef.current.trim()) {
+    if (!pcmOk && peakRef.current <= 0.012 && !textRef.current.trim()) {
       if (isBaidu() && !healthyRef.current) {
         showHostGuide('speak')
         setError(baiduMicMessage())
@@ -163,19 +180,20 @@ export function useRecognizer() {
     busyRef.current = true
     setAsrStatus('浏览器没有给出文字。正在用本机日语模型再听一遍…')
     try {
-      const { text: heardText, truncated } = await transcribeJapanese(blob, setAsrStatus)
+      const audio: Float32Array | Blob = pcmOk && samples ? samples : blob
+      const { text: heardText, truncated } = await transcribeJapanese(audio, setAsrStatus)
+      if (textRef.current.trim() && supported) return
       if (heardText) writeText(heardText)
       else setError('听到了声音，但没有识别出日语。可以再说一次，或把句子打在下面。')
       if (truncated) setAsrStatus('只识别了前 90 秒。')
       else setAsrStatus(null)
     } catch (error) {
-      if (error instanceof Error && error.name === 'AsrCancelled') {
+      if (textRef.current.trim() && supported) return
+      if (error instanceof AsrCancelled || (error instanceof Error && error.name === 'AsrCancelled')) {
         setAsrStatus(null)
         return
       }
-      setError(error instanceof Error && error.message === 'timeout'
-        ? '模型下载停住了，已经放开这个页面。声音没有上传。可以再试，或把句子打在下面。'
-        : '本机识别没有完成。声音没有上传。可以再点一次说话重试，或把句子打在下面。')
+      setError(asrFailureMessage(error))
       setAsrStatus(null)
     } finally {
       busyRef.current = false
@@ -358,6 +376,7 @@ export function useRecognizer() {
             if (rms > peakRef.current) peakRef.current = rms
             if (rms > 0.012) setHeard(true)
           })
+          pcmRef.current = startPcmCapture(stream)
         }
         if (native) window.requestAnimationFrame(() => window.requestAnimationFrame(attachMeter))
         else attachMeter()
@@ -374,12 +393,14 @@ export function useRecognizer() {
         }
         recorder.onstop = () => {
           recordLive.current = false
+          const samples = takeSamples()
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mime || 'audio/mp4' })
           if (blob.size > 0) rememberAudio(URL.createObjectURL(blob))
           releaseStream()
           mediaRef.current = null
           settle()
-          if (blob.size > 0) void runLocal(blob)
+          if (blob.size > 0 || (samples && samples.length >= 1600)) void runLocal(blob, samples)
+          else if (peakRef.current > 0.012) setError('听到了声音，但没有留下可以识别的录音。请再点一次说话。')
         }
         mediaRef.current = recorder
         try {
