@@ -4,7 +4,7 @@ import { baiduMicMessage, isAppleTouch, isBaidu, isNativeApp, isWeChat, wechatMi
 import { showHostGuide } from './host-guide.ts'
 import { canCaptureMic, openMicrophone } from './mic-open.ts'
 import { prepareNativeMic, quietPlayback } from './native-mic.ts'
-import { asrFailureMessage, cancelModelLoad, transcribeJapanese, AsrCancelled } from './local-asr.ts'
+import { asrFailureMessage, asrNeedsHostGuide, cancelModelLoad, transcribeJapanese, AsrCancelled } from './local-asr.ts'
 import { useStore } from './useStore.ts'
 
 type RecAlternative = { transcript: string }
@@ -193,6 +193,7 @@ export function useRecognizer() {
         setAsrStatus(null)
         return
       }
+      if (asrNeedsHostGuide(error)) showHostGuide('speak')
       setError(asrFailureMessage(error))
       setAsrStatus(null)
     } finally {

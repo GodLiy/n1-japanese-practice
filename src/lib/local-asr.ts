@@ -1,4 +1,5 @@
 import { blobTo16k, DecodeError } from './audio-local.ts'
+import { isAppleTouch, isBaidu, isNativeApp, isQQ, isWeChat, isX5 } from './device.ts'
 
 /** Same Whisper base model on the website and in the Android app. */
 export const LOCAL_ASR_MODEL = 'onnx-community/whisper-base'
@@ -45,21 +46,52 @@ let ready: Transcriber | null = null
 let generation = 0
 let lastBeat = 0
 let lastPercent = -1
+let acceptProgress = false
 
 export function cancelModelLoad(): void {
   generation += 1
   loading = null
 }
 
+export function asrNeedsHostGuide(error: unknown): boolean {
+  const failure = error instanceof AsrError ? error : classify(error)
+  return failure.kind === 'runtime' && (isWeChat() || isQQ() || isBaidu())
+}
+
 export function asrFailureMessage(error: unknown): string {
   const failure = error instanceof AsrError ? error : classify(error)
-  const reload = failure instanceof Error && /initWasm|previous call/i.test(failure.message)
   if (failure.kind === 'timeout') return '模型下载停住了，已经放开这个页面。声音没有上传。可以再试，或把句子打在下面。'
   if (failure.kind === 'download') return '模型没有下载完。请检查网络后再点一次说话。声音没有上传。句子也可以打在下面。'
   if (failure.kind === 'decode') return '录音已经留下，但这台设备读不了这种格式。请再点一次说话。声音没有上传。'
-  if (failure.kind === 'runtime' && reload) return '本机识别没有启动。请重新打开这个页面，再点一次说话。声音没有上传。'
-  if (failure.kind === 'runtime') return '本机识别没有启动。可以再点一次说话。声音没有上传。句子也可以打在下面。'
+  if (failure.kind === 'runtime') return runtimeMessage(failure)
   return '听到了声音，但识别没有完成。可以再点一次说话，或把句子打在下面。声音没有上传。'
+}
+
+function runtimeMessage(error: AsrError): string {
+  if (isWeChat()) {
+    return isAppleTouch()
+      ? '微信里无法启动本机识别。请点右上角「···」→「在Safari中打开」，再用 Safari 说话。句子也可以打在下面。声音没有上传。'
+      : '微信里无法启动本机识别。请点右上角「···」→「在浏览器中打开」，用手机自带浏览器或 Chrome 说话。句子也可以打在下面。声音没有上传。'
+  }
+  if (isQQ()) {
+    return isAppleTouch()
+      ? 'QQ 里无法启动本机识别。请点右上角「···」→「在Safari中打开」。句子也可以打在下面。声音没有上传。'
+      : 'QQ 里无法启动本机识别。请点右上角菜单 →「在浏览器中打开」，用手机自带浏览器或 Chrome 说话。句子也可以打在下面。声音没有上传。'
+  }
+  if (isBaidu()) {
+    return '百度里无法启动本机识别。请点右上角菜单 →「在浏览器中打开」，用手机自带浏览器或 Chrome 说话。句子也可以打在下面。声音没有上传。'
+  }
+  if (isNativeApp()) return '这个应用没能启动本机识别。请完全关掉应用后再打开，然后点一次说话。句子也可以打在下面。声音没有上传。'
+  if (/initWasm|previous call|script source URL/i.test(error.message)) return '本机识别没有启动。请重新打开这个页面，再点一次说话。声音没有上传。'
+  return '本机识别没有启动。可以再点一次说话。声音没有上传。句子也可以打在下面。'
+}
+
+/** Phones and in-app browsers often cannot start the recognition worker. The page thread still can. */
+function useWorkerBackend(): boolean {
+  if (typeof Worker === 'undefined') return false
+  if (isWeChat() || isQQ() || isBaidu() || isX5() || isNativeApp() || isAppleTouch()) return false
+  if (typeof navigator !== 'undefined' && /Android|Mobile/i.test(navigator.userAgent)) return false
+  return true
 }
 
 function asText(output: { text?: string } | string): string {
@@ -76,8 +108,8 @@ function classify(error: unknown): AsrError {
   if (error instanceof DecodeError) return new AsrError('decode', error.message)
   const message = error instanceof Error ? `${error.name} ${error.message}` : String(error)
   if (/DecodeError|EncodingError|Unable to decode|decodeAudio/i.test(message)) return new AsrError('decode', message)
-  if (/Failed to fetch|NetworkError|network|huggingface|404|403|504/i.test(message)) return new AsrError('download', message)
-  if (/wasm|worker|onnx|backend|initWasm|SharedArray|no available backend/i.test(message)) return new AsrError('runtime', message)
+  if (/Failed to fetch|NetworkError|huggingface|404|403|504/i.test(message)) return new AsrError('download', message)
+  if (/wasm|worker|initWasm|SharedArray|no available backend|script source URL/i.test(message)) return new AsrError('runtime', message)
   return new AsrError('recognize', message)
 }
 
@@ -87,17 +119,17 @@ async function createPipeline(onStatus: (message: string) => void, token: number
   env.useBrowserCache = true
   const wasm = env.backends.onnx.wasm as WasmEnv
   wasm.numThreads = 1
-  wasm.simd = true
-  // Run recognition in a worker. Clear the CDN path so the worker uses the
-  // runtime file shipped with this site, not a third-party host.
-  wasm.proxy = true
+  // Desktop can keep the runtime off the page thread. Phones and WeChat use the
+  // page thread, because their worker cannot finish loading this runtime.
+  wasm.proxy = useWorkerBackend()
   wasm.wasmPaths = ''
   beat()
+  await new Promise((resolve) => window.setTimeout(resolve, 30))
   const transcriber = await pipeline('automatic-speech-recognition', LOCAL_ASR_MODEL, {
     dtype: 'q8',
     device: 'wasm',
     progress_callback: (info: Progress) => {
-      if (token !== generation) return
+      if (!acceptProgress || token !== generation) return
       beat()
       if (info.status === 'progress') {
         const percent = typeof info.progress === 'number'
@@ -121,11 +153,17 @@ async function createPipeline(onStatus: (message: string) => void, token: number
 }
 
 function loadModel(onStatus: (message: string) => void, token: number): Promise<Transcriber> {
-  if (ready && token === generation) return Promise.resolve(ready)
+  if (ready) {
+    onStatus('模型已在本机，正在识别…')
+    return Promise.resolve(ready)
+  }
   if (loading && token === generation) return loading
   beat()
   lastPercent = -1
-  onStatus('正在准备本机日语识别模型…可以取消，句子也能先打在下面。')
+  acceptProgress = true
+  onStatus(useWorkerBackend()
+    ? '正在准备本机日语识别模型…可以取消，句子也能先打在下面。'
+    : '正在准备本机日语识别模型…可以取消。启动时页面会停顿一下。')
   let settled = false
   loading = new Promise<Transcriber>((resolve, reject) => {
     const timer = window.setInterval(() => {
@@ -148,6 +186,7 @@ function loadModel(onStatus: (message: string) => void, token: number): Promise<
       }
     }, 2000)
     const finish = (transcriber: Transcriber) => {
+      acceptProgress = false
       ready = transcriber
       if (settled || token !== generation) return
       settled = true
@@ -155,6 +194,7 @@ function loadModel(onStatus: (message: string) => void, token: number): Promise<
       resolve(transcriber)
     }
     const fail = (error: unknown) => {
+      acceptProgress = false
       if (loading && token === generation) loading = null
       if (settled) return
       settled = true
