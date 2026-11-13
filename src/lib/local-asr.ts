@@ -1,12 +1,16 @@
 import { blobTo16k, DecodeError } from './audio-local.ts'
+import { ASR_MODEL_ID, ASR_REVISION, SITE_MIRROR_BASES } from './asr-pack.ts'
 import { isAppleTouch, isBaidu, isNativeApp, isQQ, isWeChat, isX5 } from './device.ts'
+import { seedAsrCache } from './model-fetch.ts'
+import { resolveOrtWasm } from './ort-runtime.ts'
 
-/** Same Whisper base model on the website and in the Android app. */
-export const LOCAL_ASR_MODEL = 'onnx-community/whisper-base'
-export const LOCAL_ASR_NOTE = '手机和浏览器用同一个日语模型，大约 80MB，另有约 22MB 运行库。只在第一次下载，之后留在这台设备里。下载时可以取消，页面不会被卡住。录音不会上传。'
+/** Whisper small on the website and in the Android app. Larger than the old base model, still local. */
+export const LOCAL_ASR_MODEL = ASR_MODEL_ID
+export const LOCAL_ASR_NOTE = '手机和浏览器用同一个 Whisper small 日语模型，大约 250MB，另有约 22MB 运行库。只在第一次下载，之后留在这台设备里。国内会先试镜像。下载时可以取消，页面不会被卡住。录音不会上传。'
 
 const HALLUCINATION = /^(ご視聴ありがとうございました|字幕制作|字幕作成|ご視聴ありがとう)[。！…\s]*$/
-const STALL_MS = 90000
+const STALL_MS = 180000
+const CHINA_SITE = `${SITE_MIRROR_BASES[0]}index.html`
 
 type Transcriber = (
   audio: Float32Array,
@@ -61,7 +65,8 @@ export function asrNeedsHostGuide(error: unknown): boolean {
 export function asrFailureMessage(error: unknown): string {
   const failure = error instanceof AsrError ? error : classify(error)
   if (failure.kind === 'timeout') return '模型下载停住了，已经放开这个页面。声音没有上传。可以再试，或把句子打在下面。'
-  if (failure.kind === 'download') return '模型没有下载完。请检查网络后再点一次说话。声音没有上传。句子也可以打在下面。'
+  if (failure.kind === 'download' && /checksum/i.test(failure.message)) return `模型文件校验没有通过，没有使用这份文件。请再点一次说话。国内可打开 ${CHINA_SITE} 。声音没有上传。`
+  if (failure.kind === 'download') return `模型没有下载完。请再点一次说话。若打不开 GitHub 或 huggingface.co，请改用国内镜像 ${CHINA_SITE} 。声音没有上传。句子也可以打在下面。`
   if (failure.kind === 'decode') return '录音已经留下，但这台设备读不了这种格式。请再点一次说话。声音没有上传。'
   if (failure.kind === 'runtime') return runtimeMessage(failure)
   return '听到了声音，但识别没有完成。可以再点一次说话，或把句子打在下面。声音没有上传。'
@@ -109,6 +114,7 @@ function classify(error: unknown): AsrError {
   const message = error instanceof Error ? `${error.name} ${error.message}` : String(error)
   if (/DecodeError|EncodingError|Unable to decode|decodeAudio/i.test(message)) return new AsrError('decode', message)
   if (/Failed to fetch|NetworkError|huggingface|404|403|504/i.test(message)) return new AsrError('download', message)
+  if (/checksum|runtime part|runtime checksum/i.test(message)) return new AsrError('download', message)
   if (/wasm|worker|initWasm|SharedArray|no available backend|script source URL/i.test(message)) return new AsrError('runtime', message)
   return new AsrError('recognize', message)
 }
@@ -117,36 +123,37 @@ async function createPipeline(onStatus: (message: string) => void, token: number
   const { pipeline, env } = await import('@huggingface/transformers')
   env.allowLocalModels = false
   env.useBrowserCache = true
+  await seedAsrCache((loaded, total, source) => {
+    if (token !== generation) return
+    beat()
+    const shown = total ? Math.min(100, Math.round((100 * loaded) / total)) : 0
+    if (shown === lastPercent && source !== '本机缓存') return
+    lastPercent = shown
+    onStatus(source === '本机缓存'
+      ? '模型已在本机，正在启动识别…'
+      : `正在从${source}下载识别模型 ${shown}%。可以取消，句子也能先打在下面。`)
+  }, () => token !== generation)
+  if (token !== generation) throw new AsrCancelled()
   const wasm = env.backends.onnx.wasm as WasmEnv
   wasm.numThreads = 1
-  // Desktop can keep the runtime off the page thread. Phones and WeChat use the
-  // page thread, because their worker cannot finish loading this runtime.
-  wasm.proxy = useWorkerBackend()
-  wasm.wasmPaths = ''
+  const runtime = await resolveOrtWasm()
+  // A blob URL is only visible on this page, so a worker cannot load it.
+  // Phones and in-app browsers also stay on the page thread.
+  wasm.proxy = runtime.startsWith('blob:') ? false : useWorkerBackend()
+  wasm.wasmPaths = runtime
   beat()
+  onStatus(wasm.proxy
+    ? '模型文件已核对，正在启动识别…'
+    : '模型文件已核对，正在启动识别…页面会停顿一下。')
   await new Promise((resolve) => window.setTimeout(resolve, 30))
   const transcriber = await pipeline('automatic-speech-recognition', LOCAL_ASR_MODEL, {
     dtype: 'q8',
     device: 'wasm',
+    revision: ASR_REVISION,
     progress_callback: (info: Progress) => {
       if (!acceptProgress || token !== generation) return
       beat()
-      if (info.status === 'progress') {
-        const percent = typeof info.progress === 'number'
-          ? info.progress
-          : info.total
-            ? (100 * (info.loaded ?? 0)) / info.total
-            : null
-        if (percent == null) return
-        const shown = Math.round(percent)
-        if (shown === lastPercent) return
-        lastPercent = shown
-        const file = info.file ? ` ${info.file}` : ''
-        onStatus(`正在下载本机识别模型 ${shown}%${file}。可以取消，句子也能先打在下面。`)
-        return
-      }
-      if (info.status === 'initiate') onStatus('正在下载本机日语识别模型…可以取消。')
-      else if (info.status === 'ready') onStatus('模型已在本机，正在识别…')
+      if (info.status === 'ready') onStatus('模型已在本机，正在识别…')
     },
   })
   return transcriber as Transcriber
@@ -199,7 +206,8 @@ function loadModel(onStatus: (message: string) => void, token: number): Promise<
       if (settled) return
       settled = true
       window.clearInterval(timer)
-      reject(error instanceof AsrCancelled ? error : classify(error))
+      const cancelled = error instanceof AsrCancelled || (error instanceof Error && error.name === 'AsrCancelled')
+      reject(cancelled ? new AsrCancelled() : classify(error))
     }
     void createPipeline(onStatus, token).then(finish).catch(fail)
   })

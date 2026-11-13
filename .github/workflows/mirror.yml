@@ -1,0 +1,55 @@
+name: Publish China site mirror
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Split files a CDN will not serve whole
+        run: node scripts/split-large.mjs dist 19000000
+
+      - name: Publish the site branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/site-publish /tmp/site-old
+          mkdir -p /tmp/site-publish
+          if git ls-remote --exit-code --heads origin site >/dev/null 2>&1; then
+            git clone --branch site --single-branch "https://github.com/${GITHUB_REPOSITORY}.git" /tmp/site-old
+            if [ -d /tmp/site-old/apk ]; then
+              cp -a /tmp/site-old/apk /tmp/site-publish/apk
+            fi
+          fi
+          cp -a dist/. /tmp/site-publish/
+          git -C /tmp/site-publish init -b site
+          git -C /tmp/site-publish add -A
+          git -C /tmp/site-publish -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "Publish the site mirror."
+          git -C /tmp/site-publish remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C /tmp/site-publish -c "http.extraheader=AUTHORIZATION: bearer ${GH_TOKEN}" push --force origin site

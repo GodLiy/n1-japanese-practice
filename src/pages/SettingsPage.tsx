@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { MicSettings } from '../components/MicSettings.tsx'
+import { downloadMirroredApk } from '../lib/apk-mirror.ts'
+import { PAGES_URL, RELEASES_URL, SITE_MIRROR_BASES } from '../lib/asr-pack.ts'
 import { isNativeApp } from '../lib/device.ts'
 import { usePageTitle } from '../lib/usePageTitle.ts'
 import { useStore } from '../lib/useStore.ts'
+
+const chinaSite = `${SITE_MIRROR_BASES[0]}index.html`
+const backupSite = `${SITE_MIRROR_BASES[1]}index.html`
 
 const rates = [
   { value: 0.8, label: '慢速' },
@@ -16,6 +21,8 @@ export function SettingsPage() {
   const { state, updateSettings, resetProgress } = useStore()
   const { settings } = state
   const [confirming, setConfirming] = useState(false)
+  const [apkNote, setApkNote] = useState<string | null>(null)
+  const [apkBusy, setApkBusy] = useState(false)
   const support = readSupport()
 
   return (
@@ -25,6 +32,34 @@ export function SettingsPage() {
       <p className="lede">没有账号。语速、假名、主题、麦克风和生词都写在 localStorage，键名是 chowa-v1。</p>
 
       <MicSettings />
+
+      <section className="paper inset">
+        <h2>国内网络</h2>
+        <p className="fine">GitHub Pages 和 GitHub 下载在国内经常打不开。同一套网页会同步到国内镜像。识别模型大约 250MB，按国内镜像、jsDelivr、Hugging Face 的顺序下载，并核对校验和。录音不会上传。这里没有备案域名，个别网络仍可能打不开镜像。</p>
+        <ul className="support-list">
+          <li><a href={chinaSite}>国内镜像</a></li>
+          <li><a href={backupSite}>备用镜像</a></li>
+          <li><a href={PAGES_URL}>GitHub Pages</a></li>
+          <li><a href={RELEASES_URL}>GitHub Releases</a></li>
+        </ul>
+        <div className="end-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={apkBusy}
+            onClick={() => {
+              setApkBusy(true)
+              setApkNote('正在查找国内镜像上的安装包…')
+              void downloadMirroredApk(setApkNote)
+                .catch(() => setApkNote('镜像上还没有安装包，或下载没有完成。可以改从 GitHub Releases 下载；若 GitHub 打不开，请稍后再试镜像。'))
+                .finally(() => setApkBusy(false))
+            }}
+          >
+            下载安卓安装包
+          </button>
+        </div>
+        {apkNote ? <p className="fine">{apkNote}</p> : null}
+      </section>
 
       <section className="paper inset">
         <h2>朗读速度</h2>
@@ -71,7 +106,7 @@ export function SettingsPage() {
       <section className="paper inset">
         <h2>{isNativeApp() ? '这台手机' : '这台浏览器'}</h2>
         {isNativeApp() ? (
-          <p>这是装在手机上的聴話。听、阅读和说播放安装包里的日语录音。第一次点「说话」时，请允许麦克风。下载识别模型时可以取消，句子仍能打在下面。声音不会上传。</p>
+          <p>这是装在手机上的聴話。听、阅读和说播放安装包里的日语录音，不需要打开 GitHub。第一次点「说话」时，请允许麦克风。识别模型在第一次说话时从国内镜像下载，可以取消，句子仍能打在下面。声音不会上传。</p>
         ) : null}
         <ul className="support-list">
           <li>{support.tts ? '这台浏览器有朗读。没有日语语音时，听练习会改播网站自带的日语录音。iPhone 和 iPad 请把侧面静音开关拨到响铃，否则朗读和网页录音都没有声音。' : '这台浏览器没有语音合成。听练习会改播网站自带的日语录音；原文仍可看。'}</li>

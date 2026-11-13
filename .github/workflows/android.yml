@@ -100,4 +100,21 @@ jobs:
             2. 在手机上打开这个文件。若系统提示未知来源，允许这次安装。
             3. 打开「聴話」。听、阅读和说播放安装包里的日语录音，不把稿子发到网上。
             4. 第一次点「说话」时，允许麦克风。声音只留在这台手机上，不会上传。
-            5. 本机语音识别用完整的日语模型，第一次大约 100MB（模型约 80MB，运行库约 22MB），需要联网下载一次。下载时可以取消。下不来时，仍可以把句子打出来评分。声音不会上传。
+            5. 听、阅读和说使用安装包里的页面和日语录音，不需要打开 GitHub。本机语音识别用 Whisper small，第一次大约 270MB（模型约 250MB，运行库约 22MB）。国内会先从镜像下载，下载时可以取消。下不来时，仍可以把句子打出来评分。声音不会上传。
+            6. 打不开 GitHub 时，用 https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@site/index.html 打开网页，并在设置里下载安装包。
+
+      - name: Mirror the APK for mainland China
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          node scripts/publish-apk-parts.mjs "$APK_NAME" /tmp/apk-parts
+          rm -rf /tmp/site-apk
+          git clone --branch site --single-branch "https://github.com/${GITHUB_REPOSITORY}.git" /tmp/site-apk
+          rm -rf /tmp/site-apk/apk
+          mkdir -p /tmp/site-apk/apk
+          cp -a /tmp/apk-parts/. /tmp/site-apk/apk/
+          git -C /tmp/site-apk add apk
+          git -C /tmp/site-apk -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -m "Add the Android package to the China mirror."
+          git -C /tmp/site-apk -c "http.extraheader=AUTHORIZATION: bearer ${GH_TOKEN}" push origin HEAD:site
