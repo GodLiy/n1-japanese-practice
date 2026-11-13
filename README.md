@@ -12,7 +12,7 @@
 
 浏览器里的网站仍然可以用：<https://godliy.github.io/n1-japanese-practice/>
 
-国内如果打不开 GitHub Pages 或 GitHub 下载，用这套自动更新的镜像：<https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@site/index.html>。备用地址是 <https://cdn.jsdelivr.net/gh/GodLiy/n1-japanese-practice@site/index.html>。设置页里的「下载安卓安装包」会从镜像把安装包拼好并核对校验和，签名和 Releases 里的是同一个。识别模型也放在仓库的 `asr-a`、`asr-b` 分支里，由国内镜像分片提供，不单独依赖 huggingface.co。这不是备案过的国内服务器；个别网络仍可能打不开，那种情况需要自己的国内域名。
+国内如果打不开 huggingface.co，识别模型改从国内镜像下载：<https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@asr-a/> 和 `asr-b`，备用是 jsDelivr。设置页里的「下载安卓安装包」也会从 <https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@site/> 把安装包拼好并核对校验和，签名和 Releases 里的是同一个。这个 CDN 会把网页 HTML 当成纯文本，不能代替打开网站。安装好的应用里，听和阅读使用安装包里的页面和录音，不访问 GitHub。仓库里有 Cloudflare Pages 发布；加上 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 之后，推送 main 会自动得到一个更能在国内打开的网页。目前没有备案域名，不能保证每家运营商都能打开。
 
 ## 能做什么
 

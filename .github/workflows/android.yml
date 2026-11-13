@@ -101,7 +101,7 @@ jobs:
             3. 打开「聴話」。听、阅读和说播放安装包里的日语录音，不把稿子发到网上。
             4. 第一次点「说话」时，允许麦克风。声音只留在这台手机上，不会上传。
             5. 听、阅读和说使用安装包里的页面和日语录音，不需要打开 GitHub。本机语音识别用 Whisper small，第一次大约 270MB（模型约 250MB，运行库约 22MB）。国内会先从镜像下载，下载时可以取消。下不来时，仍可以把句子打出来评分。声音不会上传。
-            6. 打不开 GitHub 时，用 https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@site/index.html 打开网页，并在设置里下载安装包。
+            6. 打不开 huggingface.co 时，模型会改从国内镜像下载。能打开网页时，也可以在设置里从国内镜像下载安装包。镜像不会把网页当网站打开。
 
       - name: Mirror the APK for mainland China
         if: startsWith(github.ref, 'refs/tags/v')

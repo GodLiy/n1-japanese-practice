@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { MicSettings } from '../components/MicSettings.tsx'
 import { downloadMirroredApk } from '../lib/apk-mirror.ts'
-import { PAGES_URL, RELEASES_URL, SITE_MIRROR_BASES } from '../lib/asr-pack.ts'
+import { PAGES_URL, RELEASES_URL } from '../lib/asr-pack.ts'
 import { isNativeApp } from '../lib/device.ts'
 import { usePageTitle } from '../lib/usePageTitle.ts'
 import { useStore } from '../lib/useStore.ts'
 
-const chinaSite = `${SITE_MIRROR_BASES[0]}index.html`
-const backupSite = `${SITE_MIRROR_BASES[1]}index.html`
+const chinaSite = 'https://cdn.jsdmirror.com/gh/GodLiy/n1-japanese-practice@asr-a/'
+const backupSite = 'https://cdn.jsdelivr.net/gh/GodLiy/n1-japanese-practice@asr-a/'
 
 const rates = [
   { value: 0.8, label: '慢速' },
@@ -35,10 +35,10 @@ export function SettingsPage() {
 
       <section className="paper inset">
         <h2>国内网络</h2>
-        <p className="fine">GitHub Pages 和 GitHub 下载在国内经常打不开。同一套网页会同步到国内镜像。识别模型大约 250MB，按国内镜像、jsDelivr、Hugging Face 的顺序下载，并核对校验和。录音不会上传。这里没有备案域名，个别网络仍可能打不开镜像。</p>
+        <p className="fine">识别模型大约 250MB。说话时按国内镜像、jsDelivr、Hugging Face 的顺序下载，并核对校验和。录音不会上传。安装包也可以从国内镜像拼出来，签名和 GitHub Releases 相同。这个镜像的 CDN 会把网页当成纯文本，不能代替打开网站。安装好的应用里，听和阅读不访问 GitHub。目前没有备案域名。</p>
         <ul className="support-list">
-          <li><a href={chinaSite}>国内镜像</a></li>
-          <li><a href={backupSite}>备用镜像</a></li>
+          <li><a href={chinaSite}>国内镜像上的模型文件</a></li>
+          <li><a href={backupSite}>备用镜像上的模型文件</a></li>
           <li><a href={PAGES_URL}>GitHub Pages</a></li>
           <li><a href={RELEASES_URL}>GitHub Releases</a></li>
         </ul>
