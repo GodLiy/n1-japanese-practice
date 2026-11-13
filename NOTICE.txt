@@ -1,0 +1,3 @@
+Whisper small ONNX weights from onnx-community/whisper-small revision 36050c46d777d46dc4b5f43f6d90574fc38f8732.
+The original Whisper model is MIT licensed. These files are split so a public CDN can serve them.
+Audio recorded in the app is not uploaded here.
