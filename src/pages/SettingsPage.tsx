@@ -5,10 +5,10 @@ import { usePageTitle } from '../lib/usePageTitle.ts'
 import { useStore } from '../lib/useStore.ts'
 
 const rates = [
-  { value: 0.85, label: '慢' },
-  { value: 0.95, label: '稍慢' },
-  { value: 1, label: '普通' },
-  { value: 1.1, label: '稍快' },
+  { value: 0.8, label: '慢速' },
+  { value: 1, label: '正常' },
+  { value: 1.2, label: '较快' },
+  { value: 1.5, label: '快速' },
 ]
 
 export function SettingsPage() {
@@ -35,7 +35,7 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
-        <p className="fine">实际速度还受系统语音的限制。每篇里的「慢速」会再降一档。使用网站自带录音时，慢速会直接放慢这段录音。</p>
+        <p className="fine">默认是「较快」（1.2 倍），接近日常对话的速度。网站自带录音和系统朗读都用这一档。每篇里的「慢速」会再降一档。选好的速度留在这台设备上。</p>
       </section>
 
       <section className="paper inset toggles">
@@ -71,7 +71,7 @@ export function SettingsPage() {
       <section className="paper inset">
         <h2>{isNativeApp() ? '这台手机' : '这台浏览器'}</h2>
         {isNativeApp() ? (
-          <p>这是装在手机上的聴話。听、阅读和说播放安装包里的日语录音。第一次点「说话」时，请允许麦克风。声音不会上传。</p>
+          <p>这是装在手机上的聴話。听、阅读和说播放安装包里的日语录音。第一次点「说话」时，请允许麦克风。下载识别模型时可以取消，句子仍能打在下面。声音不会上传。</p>
         ) : null}
         <ul className="support-list">
           <li>{support.tts ? '这台浏览器有朗读。没有日语语音时，听练习会改播网站自带的日语录音。iPhone 和 iPad 请把侧面静音开关拨到响铃，否则朗读和网页录音都没有声音。' : '这台浏览器没有语音合成。听练习会改播网站自带的日语录音；原文仍可看。'}</li>

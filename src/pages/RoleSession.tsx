@@ -78,6 +78,7 @@ function RolePlayer({ item }: { item: RoleScenario }) {
         level={rec.level}
         heard={rec.heard}
         asrStatus={rec.asrStatus}
+        onCancelAsr={rec.cancelAsr}
         onChange={(value) => {
           setSaved(false)
           rec.setText(value)

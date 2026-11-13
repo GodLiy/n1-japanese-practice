@@ -1,4 +1,5 @@
 import type { ReadSet } from '../types.ts'
+import { moreRead } from './daily-next.ts'
 import { lifeRead } from './read-life.ts'
 import { newsRead } from './read-news.ts'
 
@@ -107,7 +108,7 @@ const coreRead: ReadSet[] = [
   },
 ]
 
-export const readSets: ReadSet[] = [...coreRead, ...newsRead, ...lifeRead]
+export const readSets: ReadSet[] = [...coreRead, ...newsRead, ...lifeRead, ...moreRead]
 
 export function getReadSet(id: string): ReadSet | undefined {
   return readSets.find((item) => item.id === id)

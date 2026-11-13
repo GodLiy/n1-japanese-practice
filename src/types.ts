@@ -178,6 +178,8 @@ export type Mode = 'listen' | 'shadow' | 'role' | 'read' | 'article'
 
 export type Settings = {
   rate: number
+  /** Bumps when the default speed changes, so an old untouched 1.0 becomes the new default once. */
+  rateRev?: number
   furigana: boolean
   hints: boolean
   theme: 'light' | 'dark'

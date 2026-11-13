@@ -1,5 +1,6 @@
-import { isBaidu } from './device.ts'
+import { isBaidu, isNativeApp } from './device.ts'
 import { openMicrophone } from './mic-open.ts'
+import { prepareNativeMic } from './native-mic.ts'
 
 export type MicPermission = 'unknown' | 'prompt' | 'granted' | 'denied'
 
@@ -16,6 +17,10 @@ export async function readMicPermission(): Promise<MicPermission> {
 
 export async function requestMicrophone(): Promise<MicPermission> {
   try {
+    if (isNativeApp()) {
+      const allowed = await prepareNativeMic()
+      if (!allowed) return 'denied'
+    }
     const stream = await openMicrophone()
     const open = stream.getAudioTracks().some((track) => track.readyState === 'live' && track.enabled && !track.muted)
     stream.getTracks().forEach((track) => track.stop())

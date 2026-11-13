@@ -1,4 +1,5 @@
 import type { Article } from '../types.ts'
+import { moreArticles } from './daily-next.ts'
 import { lifeArticles } from './articles-life.ts'
 
 const coreArticles: Article[] = [
@@ -717,7 +718,7 @@ const coreArticles: Article[] = [
   },
 ]
 
-export const articles: Article[] = [...coreArticles, ...lifeArticles]
+export const articles: Article[] = [...coreArticles, ...lifeArticles, ...moreArticles]
 
 export function getArticle(id: string): Article | undefined {
   return articles.find((item) => item.id === id)

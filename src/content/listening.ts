@@ -1,4 +1,5 @@
 import type { ListeningItem } from '../types.ts'
+import { moreListening } from './daily-next.ts'
 import { lifeListening } from './listening-life.ts'
 import { newsListening } from './listening-news.ts'
 
@@ -816,7 +817,7 @@ const coreListening: ListeningItem[] = [
   },
 ]
 
-export const listeningItems: ListeningItem[] = [...coreListening, ...newsListening, ...lifeListening]
+export const listeningItems: ListeningItem[] = [...coreListening, ...newsListening, ...lifeListening, ...moreListening]
 
 export function getListening(id: string): ListeningItem | undefined {
   return listeningItems.find((item) => item.id === id)

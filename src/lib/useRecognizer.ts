@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { unlockAudio, watchLevel } from './audio-local.ts'
-import { baiduMicMessage, isAppleTouch, isBaidu, isWeChat, wechatMicMessage } from './device.ts'
+import { baiduMicMessage, isAppleTouch, isBaidu, isNativeApp, isWeChat, wechatMicMessage } from './device.ts'
 import { showHostGuide } from './host-guide.ts'
 import { canCaptureMic, openMicrophone } from './mic-open.ts'
-import { transcribeJapanese } from './local-asr.ts'
+import { prepareNativeMic, quietPlayback } from './native-mic.ts'
+import { cancelModelLoad, transcribeJapanese } from './local-asr.ts'
 import { useStore } from './useStore.ts'
 
 type RecAlternative = { transcript: string }
@@ -167,8 +168,14 @@ export function useRecognizer() {
       else setError('听到了声音，但没有识别出日语。可以再说一次，或把句子打在下面。')
       if (truncated) setAsrStatus('只识别了前 90 秒。')
       else setAsrStatus(null)
-    } catch {
-      setError('本机识别模型没有准备好。声音没有上传。可以稍后再试，或把句子打在下面。')
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AsrCancelled') {
+        setAsrStatus(null)
+        return
+      }
+      setError(error instanceof Error && error.message === 'timeout'
+        ? '模型下载停住了，已经放开这个页面。声音没有上传。可以再试，或把句子打在下面。'
+        : '本机识别没有完成。声音没有上传。可以再点一次说话重试，或把句子打在下面。')
       setAsrStatus(null)
     } finally {
       busyRef.current = false
@@ -208,20 +215,12 @@ export function useRecognizer() {
     setListening(false)
   }, [])
 
-  const start = useCallback(() => {
-    if (busyRef.current) {
-      setError('上一段还在本机识别，请稍等。')
-      return
-    }
-    if (!window.isSecureContext) {
-      setError('麦克风需要安全连接（HTTPS）。')
-      return
-    }
-    unlockAudio()
+  const beginCapture = useCallback((allowSynth: boolean) => {
     const Ctor = getCtor()
     const record = canUseRecorder()
     const baidu = isBaidu()
-    const useBrowserRecognition = Boolean(Ctor) && !(baidu && record)
+    const native = isNativeApp()
+    const useBrowserRecognition = allowSynth && Boolean(Ctor) && !(baidu && record) && !native
     if (!useBrowserRecognition && !record) {
       if (isWeChat() || baidu) showHostGuide('speak')
       setError(isWeChat() ? wechatMicMessage() : baidu ? baiduMicMessage() : '这台设备不能录音，也不能识别。把你说的话打在下面。')
@@ -353,10 +352,15 @@ export function useRecognizer() {
             showHostGuide('speak')
           }, 2500)
         }
-        stopMeter.current = watchLevel(stream, setLevel, (rms) => {
-          if (rms > peakRef.current) peakRef.current = rms
-          if (rms > 0.012) setHeard(true)
-        })
+        const attachMeter = () => {
+          if (!wantRef.current) return
+          stopMeter.current = watchLevel(stream, setLevel, (rms) => {
+            if (rms > peakRef.current) peakRef.current = rms
+            if (rms > 0.012) setHeard(true)
+          })
+        }
+        if (native) window.requestAnimationFrame(() => window.requestAnimationFrame(attachMeter))
+        else attachMeter()
         const mime = pickMime()
         let recorder: MediaRecorder
         try {
@@ -396,6 +400,45 @@ export function useRecognizer() {
       })
   }, [apple, runLocal, settle])
 
+  const start = useCallback(() => {
+    if (busyRef.current) {
+      setError('上一段还在本机识别，请稍等。可以先把句子打在下面。')
+      return
+    }
+    if (!window.isSecureContext) {
+      setError('麦克风需要安全连接（HTTPS）。')
+      return
+    }
+    const native = isNativeApp()
+    if (!native) unlockAudio()
+    else quietPlayback()
+    if (native) {
+      wantRef.current = true
+      setError(null)
+      setAsrStatus('正在向系统请求麦克风…')
+      void prepareNativeMic().then((ok) => {
+        if (!wantRef.current) return
+        setAsrStatus(null)
+        if (!ok) {
+          wantRef.current = false
+          setListening(false)
+          setError('麦克风被拒绝了。请到系统设置里允许「聴話」使用麦克风，然后再点一次说话。句子也可以打在下面。')
+          return
+        }
+        beginCapture(false)
+      })
+      return
+    }
+    beginCapture(true)
+  }, [beginCapture])
+
+  const cancelAsr = useCallback(() => {
+    cancelModelLoad()
+    busyRef.current = false
+    setAsrStatus(null)
+    setError('已停下这次下载。句子仍可以打在下面评分。下次说话时可以再试。')
+  }, [])
+
   useEffect(() => {
     return () => {
       wantRef.current = false
@@ -430,5 +473,6 @@ export function useRecognizer() {
     localAsr: state.settings.localAsr,
     start,
     stop,
+    cancelAsr,
   }
 }

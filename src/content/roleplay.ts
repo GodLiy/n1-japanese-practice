@@ -1,4 +1,5 @@
 import type { RoleScenario } from '../types.ts'
+import { moreRoles } from './daily-next.ts'
 import { lifeRoles } from './role-life.ts'
 import { newsRoles } from './role-news.ts'
 
@@ -219,7 +220,7 @@ const coreRoles: RoleScenario[] = [
   },
 ]
 
-export const roleScenarios: RoleScenario[] = [...coreRoles, ...newsRoles, ...lifeRoles]
+export const roleScenarios: RoleScenario[] = [...coreRoles, ...newsRoles, ...lifeRoles, ...moreRoles]
 
 export function getRole(id: string): RoleScenario | undefined {
   return roleScenarios.find((item) => item.id === id)

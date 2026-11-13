@@ -127,7 +127,7 @@ export function describeVoices(voices: SpeechSynthesisVoice[]): { label: string;
 }
 
 function clampRate(rate: number): number {
-  return Math.min(1.4, Math.max(0.6, rate))
+  return Math.min(1.5, Math.max(0.75, rate))
 }
 
 function voicesReadyNow(): boolean {
@@ -476,7 +476,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       const utterance = new SpeechSynthesisUtterance(item.text)
       utterance.lang = 'ja-JP'
       const pack = packs[item.slot] ?? packs[0]
-      utterance.rate = Math.min(1.4, Math.max(0.6, rate * (pack?.rateScale ?? 1)))
+      utterance.rate = Math.min(1.5, Math.max(0.75, rate * (pack?.rateScale ?? 1)))
       utterance.pitch = pack?.pitch ?? 1
       try {
         const voice = liveVoice(pack)

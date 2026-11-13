@@ -3,8 +3,11 @@ import { localDay, shiftDay } from './day.ts'
 
 export const STORAGE_KEY = 'chowa-v1'
 
+export const RATE_REV = 2
+
 export const defaultSettings: Settings = {
-  rate: 1,
+  rate: 1.2,
+  rateRev: RATE_REV,
   furigana: true,
   hints: true,
   theme: 'light',
@@ -26,8 +29,13 @@ export function loadState(): Persisted {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyState()
     const parsed = JSON.parse(raw) as Partial<Persisted>
+    const settings = { ...defaultSettings, ...parsed.settings }
+    if ((parsed.settings?.rateRev ?? 1) < RATE_REV) {
+      if (parsed.settings?.rate == null || parsed.settings.rate === 1) settings.rate = defaultSettings.rate
+      settings.rateRev = RATE_REV
+    }
     return {
-      settings: { ...defaultSettings, ...parsed.settings },
+      settings,
       records: parsed.records ?? {},
       streak: parsed.streak?.lastDay ? parsed.streak : { count: 0, lastDay: '' },
       activity: Array.isArray(parsed.activity) ? parsed.activity : [],

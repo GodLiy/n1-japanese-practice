@@ -139,6 +139,7 @@ function ReadPlayer({ item }: { item: ReadSet }) {
             level={rec.level}
             heard={rec.heard}
             asrStatus={rec.asrStatus}
+            onCancelAsr={rec.cancelAsr}
             onChange={rec.setText}
             onMic={() => {
               if (rec.listening) rec.stop()

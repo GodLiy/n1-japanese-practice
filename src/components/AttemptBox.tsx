@@ -16,6 +16,7 @@ export function AttemptBox({
   asrStatus = null,
   onChange,
   onMic,
+  onCancelAsr,
 }: {
   listening: boolean
   text: string
@@ -30,6 +31,7 @@ export function AttemptBox({
   asrStatus?: string | null
   onChange: (value: string) => void
   onMic: () => void
+  onCancelAsr?: () => void
 }) {
   const status = asrStatus
     ? asrStatus
@@ -62,6 +64,12 @@ export function AttemptBox({
           {listening ? (
             <div className="level" aria-hidden="true">
               <span style={{ width: `${Math.round(level * 100)}%` }} />
+            </div>
+          ) : null}
+          {asrStatus && !listening && onCancelAsr ? (
+            <div className="attempt-row">
+              <button type="button" className="text-btn" onClick={onCancelAsr}>取消</button>
+              <button type="button" className="text-btn" onClick={onMic}>再试</button>
             </div>
           ) : null}
         </div>
