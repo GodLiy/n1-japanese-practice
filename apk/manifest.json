@@ -1,11 +1,11 @@
 {
-  "name": "chowa-1.0.4.apk",
-  "sha256": "510610cf722ff552fe335fc05737e46a261d534c8ee1ecaae24bf18496da16f9",
-  "bytes": 47860534,
+  "name": "chowa-1.0.5.apk",
+  "sha256": "c7d4da7e9a9d9031023ccee3bdbc85a5a439da937a28edc5aa9d870632175a8b",
+  "bytes": 47861850,
   "parts": [
-    "chowa-1.0.4.apk.part00",
-    "chowa-1.0.4.apk.part01",
-    "chowa-1.0.4.apk.part02",
-    "chowa-1.0.4.apk.part03"
+    "chowa-1.0.5.apk.part00",
+    "chowa-1.0.5.apk.part01",
+    "chowa-1.0.5.apk.part02",
+    "chowa-1.0.5.apk.part03"
   ]
 }
