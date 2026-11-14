@@ -17,8 +17,8 @@ export function asBlob(bytes: Uint8Array): Blob {
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const copy = new ArrayBuffer(bytes.byteLength)
-  new Uint8Array(copy).set(bytes)
-  const digest = await crypto.subtle.digest('SHA-256', copy)
+  const whole = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+  const source = whole ? bytes.buffer : bytes.slice().buffer
+  const digest = await crypto.subtle.digest('SHA-256', source as ArrayBuffer)
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }

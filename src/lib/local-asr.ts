@@ -1,8 +1,10 @@
 import { blobTo16k, DecodeError } from './audio-local.ts'
-import { ASR_MODEL_ID, ASR_REVISION, SITE_MIRROR_BASES } from './asr-pack.ts'
-import { isAppleTouch, isBaidu, isNativeApp, isQQ, isWeChat, isX5 } from './device.ts'
-import { seedAsrCache } from './model-fetch.ts'
-import { resolveOrtWasm } from './ort-runtime.ts'
+import { applyOrtRuntime, type WasmEnv } from './asr-runtime.ts'
+import { ASR_MODEL_ID, ASR_REVISION } from './asr-pack.ts'
+import { isAppleTouch, isBaidu, isNativeApp, isQQ, isWeChat } from './device.ts'
+import { installModelCache, seedAsrCache } from './model-fetch.ts'
+import { releaseRememberedModel } from './model-store.ts'
+import { loadOrtRuntime } from './ort-runtime.ts'
 
 /** Whisper small on the website and in the Android app. Larger than the old base model, still local. */
 export const LOCAL_ASR_MODEL = ASR_MODEL_ID
@@ -10,7 +12,6 @@ export const LOCAL_ASR_NOTE = '手机和浏览器用同一个 Whisper small 日�
 
 const HALLUCINATION = /^(ご視聴ありがとうございました|字幕制作|字幕作成|ご視聴ありがとう)[。！…\s]*$/
 const STALL_MS = 180000
-const CHINA_SITE = `${SITE_MIRROR_BASES[0]}index.html`
 
 type Transcriber = (
   audio: Float32Array,
@@ -19,13 +20,6 @@ type Transcriber = (
 
 type Progress = { status?: string; file?: string; progress?: number; loaded?: number; total?: number }
 
-type WasmEnv = {
-  numThreads?: number
-  proxy?: boolean
-  simd?: boolean
-  wasmPaths?: string | { wasm?: string | URL }
-}
-
 export class AsrCancelled extends Error {
   constructor() {
     super('cancelled')
@@ -33,7 +27,7 @@ export class AsrCancelled extends Error {
   }
 }
 
-export type AsrKind = 'download' | 'runtime' | 'decode' | 'timeout' | 'recognize'
+export type AsrKind = 'download' | 'runtime' | 'decode' | 'timeout' | 'storage' | 'recognize'
 
 export class AsrError extends Error {
   readonly kind: AsrKind
@@ -65,14 +59,17 @@ export function asrNeedsHostGuide(error: unknown): boolean {
 export function asrFailureMessage(error: unknown): string {
   const failure = error instanceof AsrError ? error : classify(error)
   if (failure.kind === 'timeout') return '模型下载停住了，已经放开这个页面。声音没有上传。可以再试，或把句子打在下面。'
-  if (failure.kind === 'download' && /checksum/i.test(failure.message)) return `模型文件校验没有通过，没有使用这份文件。请再点一次说话。国内可打开 ${CHINA_SITE} 。声音没有上传。`
-  if (failure.kind === 'download') return `模型没有下载完。请再点一次说话。若打不开 GitHub 或 huggingface.co，请改用国内镜像 ${CHINA_SITE} 。声音没有上传。句子也可以打在下面。`
+  if (failure.kind === 'storage') return '这台设备的存储空间不够，放不下识别模型。请清出大约 300MB 后再点一次说话。声音没有上传。'
+  if (failure.kind === 'download' && /checksum/i.test(failure.message)) return '模型文件校验没有通过，没有使用这份文件。请再点一次说话。声音没有上传。'
+  if (failure.kind === 'download') return '模型文件没有准备好。请再点一次说话。国内镜像会自动再试。声音没有上传。句子也可以打在下面。'
   if (failure.kind === 'decode') return '录音已经留下，但这台设备读不了这种格式。请再点一次说话。声音没有上传。'
   if (failure.kind === 'runtime') return runtimeMessage(failure)
   return '听到了声音，但识别没有完成。可以再点一次说话，或把句子打在下面。声音没有上传。'
 }
 
 function runtimeMessage(error: AsrError): string {
+  if (/runtime checksum/i.test(error.message)) return '本机识别的运行库校验没有通过。请重新打开这个页面，再点一次说话。声音没有上传。'
+  if (/runtime wasm|runtime part/i.test(error.message)) return '本机识别的运行库没有载入。请重新打开这个页面，再点一次说话。声音没有上传。'
   if (isWeChat()) {
     return isAppleTouch()
       ? '微信里无法启动本机识别。请点右上角「···」→「在Safari中打开」，再用 Safari 说话。句子也可以打在下面。声音没有上传。'
@@ -91,14 +88,6 @@ function runtimeMessage(error: AsrError): string {
   return '本机识别没有启动。可以再点一次说话。声音没有上传。句子也可以打在下面。'
 }
 
-/** Phones and in-app browsers often cannot start the recognition worker. The page thread still can. */
-function useWorkerBackend(): boolean {
-  if (typeof Worker === 'undefined') return false
-  if (isWeChat() || isQQ() || isBaidu() || isX5() || isNativeApp() || isAppleTouch()) return false
-  if (typeof navigator !== 'undefined' && /Android|Mobile/i.test(navigator.userAgent)) return false
-  return true
-}
-
 function asText(output: { text?: string } | string): string {
   const raw = typeof output === 'string' ? output : output.text ?? ''
   return raw.replace(/\s+/g, ' ').trim()
@@ -113,16 +102,17 @@ function classify(error: unknown): AsrError {
   if (error instanceof DecodeError) return new AsrError('decode', error.message)
   const message = error instanceof Error ? `${error.name} ${error.message}` : String(error)
   if (/DecodeError|EncodingError|Unable to decode|decodeAudio/i.test(message)) return new AsrError('decode', message)
+  if (/wasm|initWasm|SharedArray|no available backend|script source URL|runtime wasm|runtime checksum|runtime part/i.test(message)) return new AsrError('runtime', message)
+  if (/QuotaExceeded|quota/i.test(message)) return new AsrError('storage', message)
+  if (/checksum/i.test(message)) return new AsrError('download', message)
   if (/Failed to fetch|NetworkError|huggingface|404|403|504/i.test(message)) return new AsrError('download', message)
-  if (/checksum|runtime part|runtime checksum/i.test(message)) return new AsrError('download', message)
-  if (/wasm|worker|initWasm|SharedArray|no available backend|script source URL/i.test(message)) return new AsrError('runtime', message)
   return new AsrError('recognize', message)
 }
 
 async function createPipeline(onStatus: (message: string) => void, token: number): Promise<Transcriber> {
   const { pipeline, env } = await import('@huggingface/transformers')
   env.allowLocalModels = false
-  env.useBrowserCache = true
+  installModelCache(env)
   await seedAsrCache((loaded, total, source) => {
     if (token !== generation) return
     beat()
@@ -134,13 +124,16 @@ async function createPipeline(onStatus: (message: string) => void, token: number
       : `正在从${source}下载识别模型 ${shown}%。可以取消，句子也能先打在下面。`)
   }, () => token !== generation)
   if (token !== generation) throw new AsrCancelled()
+  onStatus('模型文件已核对，正在载入运行库…')
+  const runtime = await loadOrtRuntime().catch((error: unknown) => {
+    if (error instanceof Error && /runtime checksum/i.test(error.message)) throw error
+    throw new Error('runtime wasm')
+  })
+  if (token !== generation) throw new AsrCancelled()
   const wasm = env.backends.onnx.wasm as WasmEnv
-  wasm.numThreads = 1
-  const runtime = await resolveOrtWasm()
-  // A blob URL is only visible on this page, so a worker cannot load it.
-  // Phones and in-app browsers also stay on the page thread.
-  wasm.proxy = runtime.startsWith('blob:') ? false : useWorkerBackend()
-  wasm.wasmPaths = runtime
+  // The runtime bytes stay on this page. A worker in the production build stops
+  // with "document is not defined", and a file URL string is only a path prefix.
+  applyOrtRuntime(wasm, runtime, true)
   beat()
   onStatus(wasm.proxy
     ? '模型文件已核对，正在启动识别…'
@@ -156,6 +149,7 @@ async function createPipeline(onStatus: (message: string) => void, token: number
       if (info.status === 'ready') onStatus('模型已在本机，正在识别…')
     },
   })
+  releaseRememberedModel()
   return transcriber as Transcriber
 }
 
@@ -168,9 +162,7 @@ function loadModel(onStatus: (message: string) => void, token: number): Promise<
   beat()
   lastPercent = -1
   acceptProgress = true
-  onStatus(useWorkerBackend()
-    ? '正在准备本机日语识别模型…可以取消，句子也能先打在下面。'
-    : '正在准备本机日语识别模型…可以取消。启动时页面会停顿一下。')
+  onStatus('正在准备本机日语识别模型…可以取消。启动时页面会停顿一下。')
   let settled = false
   loading = new Promise<Transcriber>((resolve, reject) => {
     const timer = window.setInterval(() => {
