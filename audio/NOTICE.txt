@@ -1,0 +1,8 @@
+Japanese recordings in this folder were generated offline with Piper 1.8
+and the ja_JP hi-fi-captain medium voice (female speaker 0, male speaker 1).
+The voice was trained on the NICT Hi-Fi-CAPTAIN corpus:
+https://ast-astrec.nict.go.jp/en/release/hi-fi-captain/
+That corpus is published under CC BY-NC-SA 4.0.
+These files are for non-commercial language practice.
+Playback does not send practice text or the user's voice to a TTS service.
+Piper: https://github.com/OHF-Voice/piper1-gpl
