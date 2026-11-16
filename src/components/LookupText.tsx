@@ -57,6 +57,15 @@ function renderSegment(part: Segment, furigana: boolean, key: string) {
       />
     )
   }
+  if (part.r && tokens.every((token) => !token.entry)) {
+    if (!furigana) return <span key={key}>{part.t}</span>
+    return (
+      <ruby key={key}>
+        {part.t}
+        <rt>{part.r}</rt>
+      </ruby>
+    )
+  }
   return tokens.map((token, index) =>
     token.entry ? (
       <LookupButton

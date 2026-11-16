@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { SenseList } from '../components/SenseList.tsx'
 import { dictionary } from '../content/dictionary.ts'
 import { dictTopicLabel, dictTopicOrder } from '../lib/labels.ts'
@@ -18,7 +19,11 @@ export function WordBook() {
   usePageTitle('单词本')
   const { state, toggleSaved, isSaved } = useStore()
   const speech = useSpeech()
-  const [query, setQuery] = useState('')
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(() => params.get('q') ?? '')
+  useEffect(() => {
+    setQuery(params.get('q') ?? '')
+  }, [params])
   const [topic, setTopic] = useState<DictTopic | 'all'>('all')
   const [pos, setPos] = useState<string | 'all'>('all')
   const [onlySaved, setOnlySaved] = useState(false)

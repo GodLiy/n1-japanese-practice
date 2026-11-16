@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { HomeSearch } from '../components/HomeSearch.tsx'
+import { Momiji } from '../components/Momiji.tsx'
 import { articles } from '../content/articles.ts'
 import { dictionary } from '../content/dictionary.ts'
 import { listeningItems } from '../content/listening.ts'
@@ -72,7 +74,14 @@ export function Home() {
             给已经通过 N1 的人。听新闻和会议，读一篇评论，再把话说出来。词可以点开，生词记在这台浏览器。
           </p>
         </div>
-        <div className="enso" aria-hidden="true" />
+        <div className="hero-mark" aria-hidden="true">
+          <div className="enso" />
+          <span className="momiji-cluster hero-leaves">
+            <Momiji className="momiji tilt" />
+            <Momiji className="momiji" />
+            <Momiji className="momiji deep" />
+          </span>
+        </div>
       </section>
 
       <section className="stat-row" aria-label="练习概况">
@@ -162,6 +171,8 @@ export function Home() {
           </Link>
         </div>
       </section>
+
+      <HomeSearch />
 
       <section className="paper note-card">
         <h2>一轮怎么走</h2>

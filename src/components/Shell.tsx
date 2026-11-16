@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { HostGuide } from './HostGuide.tsx'
+import { Momiji } from './Momiji.tsx'
 import { Scene } from './Scene.tsx'
 import { Component } from 'react'
 import type { ReactNode } from 'react'
@@ -51,6 +52,10 @@ export function Shell() {
             <span className="brand-text">
               <span className="brand-name">聴話</span>
               <span className="brand-sub">听·阅读·说</span>
+            </span>
+            <span className="momiji-cluster" aria-hidden="true">
+              <Momiji className="momiji" />
+              <Momiji className="momiji deep" />
             </span>
           </NavLink>
           <nav className="desktop-nav" aria-label="主导航">
